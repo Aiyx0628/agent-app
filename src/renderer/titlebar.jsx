@@ -4,10 +4,7 @@ import { Ic } from './icons';
 export function Titlebar({ onReview, onExport }) {
   return (
     <div className="titlebar">
-      <div className="traffic">
-        <span className="dot"/><span className="dot"/><span className="dot"/>
-      </div>
-      <button className="back" title="返回"><Ic.back/></button>
+<button className="back" title="返回"><Ic.back/></button>
       <div className="crumbs">
         <span>合同审核</span>
         <span className="sep">/</span>

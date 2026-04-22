@@ -74,24 +74,13 @@ input { font: inherit; }
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
-  padding: 0 12px;
+  padding: 0 12px 0 80px;
   gap: 10px;
   -webkit-app-region: drag;
   flex: 0 0 auto;
   position: relative;
   z-index: 5;
 }
-.titlebar .traffic {
-  display: flex; gap: 8px; padding-right: 8px;
-  -webkit-app-region: no-drag;
-}
-.traffic .dot {
-  width: 12px; height: 12px; border-radius: 50%;
-  display: inline-block;
-}
-.traffic .dot:nth-child(1) { background: #ff5f57; }
-.traffic .dot:nth-child(2) { background: #febc2e; }
-.traffic .dot:nth-child(3) { background: #28c840; }
 
 .titlebar .back {
   -webkit-app-region: no-drag;
