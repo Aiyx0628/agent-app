@@ -10,9 +10,14 @@
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
-    "lint": "eslint --ext .ts,.tsx ."
+    "lint": "eslint --ext .ts,.tsx,.js,.jsx ."
   },
-  "keywords": ["electron", "ai", "coding-assistant", "desktop"],
+  "keywords": [
+    "electron",
+    "ai",
+    "coding-assistant",
+    "desktop"
+  ],
   "author": {
     "name": "zhangzhipeng",
     "email": "100657622@qq.com"
@@ -34,6 +39,7 @@
     "@typescript-eslint/parser": "^5.62.0",
     "@vercel/webpack-asset-relocator-loader": "^1.7.3",
     "css-loader": "^6.11.0",
+    "electron": "^41.1.1",
     "eslint": "^8.57.1",
     "eslint-plugin-import": "^2.32.0",
     "fork-ts-checker-webpack-plugin": "^7.3.0",

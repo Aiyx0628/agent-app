@@ -13,10 +13,7 @@
     "outDir": "dist",
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "jsx": "react-jsx",
-    "paths": {
-      "@shared/*": ["src/shared/*"]
-    }
+    "jsx": "react-jsx"
   },
   "include": ["src/**/*"]
 }

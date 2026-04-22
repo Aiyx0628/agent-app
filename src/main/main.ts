@@ -1,6 +1,4 @@
 import { app, BrowserWindow } from 'electron';
-import { registerAppIpc } from './ipc/registerAppIpc';
-import { registerWorkspaceIpc } from './ipc/registerWorkspaceIpc';
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
@@ -16,7 +14,7 @@ function createMainWindow(): BrowserWindow {
     minWidth: 900,
     minHeight: 600,
     titleBarStyle: 'hiddenInset',
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#f8f8f8',
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       contextIsolation: true,
@@ -31,8 +29,6 @@ function createMainWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
-  registerAppIpc();
-  registerWorkspaceIpc();
   createMainWindow();
 });
 

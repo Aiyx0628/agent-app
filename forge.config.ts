@@ -32,7 +32,7 @@ const config: ForgeConfig = {
         entryPoints: [
           {
             html: './src/renderer/index.html',
-            js: './src/renderer/index.tsx',
+            js: './src/renderer/app.jsx',
             name: 'main_window',
             preload: {
               js: './src/preload/index.ts',
