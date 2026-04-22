@@ -1,6 +1,7 @@
 import * as React from 'react';
+import { Ic } from './icons';
 
-export function ExcelPreview() {
+function ExcelDemoContent() {
   const cols = ['序号', '项目', '规格', '数量', '单价(元)', '小计(元)'];
   const rows = [
     ['01', '需求分析与方案设计',   '人天',    '25',  '2,400',  '60,000'],
@@ -54,6 +55,76 @@ export function ExcelPreview() {
         <div className="cell total"/>
         <div className="cell total num">790,001</div>
       </div>
+    </div>
+  );
+}
+
+function ExcelSkeletonContent() {
+  const colWidths = [180, 100, 100, 120, 100, 100];
+  const rows = Array.from({ length: 8 });
+  return (
+    <div className="excel-shell">
+      <div className="excel-tabbar">
+        <div className="excel-tab active">Sheet1</div>
+      </div>
+      <div className="excel-grid" style={{ '--cols': colWidths.length }}>
+        <div className="corner"/>
+        {colWidths.map((_, i) => (
+          <div key={i} className="col-h">
+            <div className="skeleton" style={{ height: 11, borderRadius: 3, width: '60%' }}/>
+          </div>
+        ))}
+        <div className="row-h">1</div>
+        {colWidths.map((_, i) => (
+          <div key={i} className="cell header">
+            <div className="skeleton" style={{ height: 11, borderRadius: 3, width: (40 + i * 8) + '%' }}/>
+          </div>
+        ))}
+        {rows.map((_, r) => (
+          <React.Fragment key={r}>
+            <div className="row-h">{r + 2}</div>
+            {colWidths.map((_, c) => (
+              <div key={c} className="cell">
+                <div className="skeleton" style={{ height: 11, borderRadius: 3, width: (50 + (r * c * 7) % 40) + '%' }}/>
+              </div>
+            ))}
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function ExcelPreview({ file, onMetaChange }) {
+  const [status, setStatus] = React.useState('idle');
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    if (file.source === 'demo') return;
+    setStatus('loading');
+    window.api.file.read(file.path)
+      .then(({ size, mtime }) => { onMetaChange?.({ size, mtime }); setStatus('loaded'); })
+      .catch(err => { setStatus('error'); setError(err.message); });
+  }, [file.id]);
+
+  if (file.source === 'demo') return <ExcelDemoContent/>;
+
+  if (status === 'idle' || status === 'loading') return <ExcelSkeletonContent/>;
+
+  if (status === 'error') {
+    return (
+      <div className="preview-error">
+        <div className="err-icon"><Ic.alert/></div>
+        <div>无法加载文件</div>
+        <div className="err-msg">{error}</div>
+        <button className="retry-btn" onClick={() => setStatus('idle')}>重试</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="preview-error">
+      <div style={{ color: 'var(--ink-3)', fontSize: 12 }}>文件已加载 · Excel 渲染器待接入</div>
     </div>
   );
 }

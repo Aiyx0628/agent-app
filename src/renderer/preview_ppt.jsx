@@ -38,7 +38,6 @@ export const PPT_SLIDES = [
   { type: 'title', eyebrow: 'DEMO · Q&A', title: ['谢谢聆听', '欢迎提问'], sub: '项目交付承诺 · 12 周', meta: ['End'] },
 ];
 
-// Renders an actual slide body (shared between full stage and thumbnails).
 function SlideBody({ slide, idx, total }) {
   const s = slide;
   if (s.type === 'title') {
@@ -71,7 +70,7 @@ function SlideBody({ slide, idx, total }) {
 const SLIDE_W = 820;
 const SLIDE_H = Math.round(SLIDE_W * 9 / 16);
 
-export function PptPreview({ slideIdx, setSlideIdx }) {
+function PptDemoContent({ slideIdx, setSlideIdx }) {
   const total = PPT_SLIDES.length;
   const [dir, setDir] = React.useState(1);
   const [hoverZone, setHoverZone] = React.useState(false);
@@ -81,12 +80,11 @@ export function PptPreview({ slideIdx, setSlideIdx }) {
   const thumbRefs = React.useRef([]);
   const hoverTimer = React.useRef(null);
 
-  // Measure available width and compute slide scale
   React.useEffect(() => {
     const el = stageRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => {
-      const w = el.clientWidth - 24; // side padding
+      const w = el.clientWidth - 24;
       setScale(Math.min(1, w / SLIDE_W));
     });
     ro.observe(el);
@@ -102,7 +100,6 @@ export function PptPreview({ slideIdx, setSlideIdx }) {
     });
   }, [setSlideIdx, total]);
 
-  // Keyboard nav
   React.useEffect(() => {
     const onKey = (e) => {
       if (document.activeElement && ['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
@@ -114,19 +111,14 @@ export function PptPreview({ slideIdx, setSlideIdx }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [goTo]);
 
-  // Scroll active thumb into view when strip is visible
   React.useEffect(() => {
     if (!hoverZone) return;
     const el = thumbRefs.current[slideIdx];
     const strip = stripRef.current;
     if (!el || !strip) return;
-    const elRect = el.getBoundingClientRect();
-    const stripRect = strip.getBoundingClientRect();
-    const offset = el.offsetLeft - strip.clientWidth / 2 + el.clientWidth / 2;
-    strip.scrollTo({ left: offset, behavior: 'smooth' });
+    strip.scrollTo({ left: el.offsetLeft - strip.clientWidth / 2 + el.clientWidth / 2, behavior: 'smooth' });
   }, [slideIdx, hoverZone]);
 
-  // Horizontal wheel-to-scroll on strip
   const onWheel = (e) => {
     const strip = stripRef.current; if (!strip) return;
     if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
@@ -135,14 +127,8 @@ export function PptPreview({ slideIdx, setSlideIdx }) {
     }
   };
 
-  const showZone = () => {
-    clearTimeout(hoverTimer.current);
-    setHoverZone(true);
-  };
-  const hideZone = () => {
-    clearTimeout(hoverTimer.current);
-    hoverTimer.current = setTimeout(() => setHoverZone(false), 500);
-  };
+  const showZone = () => { clearTimeout(hoverTimer.current); setHoverZone(true); };
+  const hideZone = () => { clearTimeout(hoverTimer.current); hoverTimer.current = setTimeout(() => setHoverZone(false), 500); };
 
   return (
     <div className="ppt-wrap">
@@ -161,25 +147,17 @@ export function PptPreview({ slideIdx, setSlideIdx }) {
           </div>
         </div>
 
-        {/* Hover zone that reveals the thumbnail strip */}
-        <div className="ppt-thumb-zone"
-          onMouseEnter={showZone}
-          onMouseLeave={hideZone}>
-
+        <div className="ppt-thumb-zone" onMouseEnter={showZone} onMouseLeave={hideZone}>
           <div className={`ppt-page-chip ${hoverZone ? 'hide' : ''}`}>
             {String(slideIdx + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
           </div>
-
-          <div className={`ppt-strip-shell ${hoverZone ? 'show' : ''}`}
-            onMouseEnter={showZone}
-            onMouseLeave={hideZone}>
+          <div className={`ppt-strip-shell ${hoverZone ? 'show' : ''}`} onMouseEnter={showZone} onMouseLeave={hideZone}>
             <button className="strip-arr l" onClick={() => stripRef.current?.scrollBy({ left: -200, behavior: 'smooth' })}>
               <Ic.chev style={{ transform: 'rotate(180deg)' }}/>
             </button>
             <div className="ppt-strip" ref={stripRef} onWheel={onWheel}>
               {PPT_SLIDES.map((sl, i) => (
-                <button key={i}
-                  ref={el => thumbRefs.current[i] = el}
+                <button key={i} ref={el => thumbRefs.current[i] = el}
                   className={`ppt-thumb-mini ${i === slideIdx ? 'on' : ''}`}
                   onClick={() => goTo(i)}>
                   <div className="ppt-thumb-scale">
@@ -195,6 +173,64 @@ export function PptPreview({ slideIdx, setSlideIdx }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PptSkeletonContent() {
+  return (
+    <div className="ppt-wrap">
+      <button className="ppt-nav prev" disabled><Ic.chev style={{ transform: 'rotate(180deg)' }}/></button>
+      <button className="ppt-nav next" disabled><Ic.chev/></button>
+      <div className="ppt-stage">
+        <div style={{ width: '100%', padding: '12px 12px 0' }}>
+          <div className="ppt-slide-skeleton">
+            <div className="skeleton sk-eyebrow"/>
+            <div className="skeleton sk-slide-h"/>
+            <div className="skeleton sk-slide-sub"/>
+            <div className="sk-bullets">
+              {[0, 1, 2, 3].map(i => <div key={i} className="skeleton sk-bullet"/>)}
+            </div>
+          </div>
+        </div>
+        <div className="ppt-thumb-zone">
+          <div className="ppt-page-chip">-- / --</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function PptPreview({ file, slideIdx, setSlideIdx, onMetaChange }) {
+  const [status, setStatus] = React.useState('idle');
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    if (file.source === 'demo') return;
+    setStatus('loading');
+    window.api.file.read(file.path)
+      .then(({ size, mtime }) => { onMetaChange?.({ size, mtime }); setStatus('loaded'); })
+      .catch(err => { setStatus('error'); setError(err.message); });
+  }, [file.id]);
+
+  if (file.source === 'demo') return <PptDemoContent slideIdx={slideIdx} setSlideIdx={setSlideIdx}/>;
+
+  if (status === 'idle' || status === 'loading') return <PptSkeletonContent/>;
+
+  if (status === 'error') {
+    return (
+      <div className="preview-error">
+        <div className="err-icon"><Ic.alert/></div>
+        <div>无法加载文件</div>
+        <div className="err-msg">{error}</div>
+        <button className="retry-btn" onClick={() => setStatus('idle')}>重试</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="preview-error">
+      <div style={{ color: 'var(--ink-3)', fontSize: 12 }}>文件已加载 · PPT 渲染器待接入</div>
     </div>
   );
 }

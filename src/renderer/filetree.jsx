@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { FILE_TREE } from './data';
 import { FileKindIcon, Ic } from './icons';
 
 function TreeNode({ node, depth, expanded, onToggle, activeId, onSelect }) {
@@ -41,7 +40,19 @@ function TreeNode({ node, depth, expanded, onToggle, activeId, onSelect }) {
   );
 }
 
-export function FileTree({ activeId, onSelect }) {
+function walk(nodes, out = []) {
+  for (const n of nodes) {
+    out.push(n);
+    if (n.children) walk(n.children, out);
+  }
+  return out;
+}
+
+function countFiles(nodes) {
+  return walk(nodes).filter(n => n.type === 'file').length;
+}
+
+export function FileTree({ activeId, onSelect, tree, onAddFile }) {
   const [expanded, setExpanded] = React.useState({
     'root': true,
     'folder-contracts': true,
@@ -68,13 +79,12 @@ export function FileTree({ activeId, onSelect }) {
     }).filter(Boolean);
   };
 
-  // when searching, force open all folders
   const effectiveExpanded = query.trim()
-    ? Object.fromEntries(walk(FILE_TREE).map(n => [n.id, true]))
+    ? Object.fromEntries(walk(tree).map(n => [n.id, true]))
     : expanded;
 
-  const trees = filterTree(FILE_TREE);
-  const totalFiles = countFiles(FILE_TREE);
+  const trees = filterTree(tree);
+  const totalFiles = countFiles(tree);
 
   return (
     <div className="pane left">
@@ -82,7 +92,7 @@ export function FileTree({ activeId, onSelect }) {
         <span className="title">文件</span>
         <span className="count">[{totalFiles}]</span>
         <div className="spacer"/>
-        <button className="icon-btn" title="新建文件夹"><Ic.plus/></button>
+        <button className="icon-btn" title="打开文件" onClick={onAddFile}><Ic.plus/></button>
       </div>
       <div className="lp-search">
         <div className="field">
@@ -105,15 +115,4 @@ export function FileTree({ activeId, onSelect }) {
       </div>
     </div>
   );
-}
-
-function walk(nodes, out = []) {
-  for (const n of nodes) {
-    out.push(n);
-    if (n.children) walk(n.children, out);
-  }
-  return out;
-}
-function countFiles(nodes) {
-  return walk(nodes).filter(n => n.type === 'file').length;
 }

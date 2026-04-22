@@ -1,6 +1,12 @@
 import * as React from 'react';
+import { Ic } from './icons';
 
-export function ImagePreview() {
+const MIME_MAP = {
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+  gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+};
+
+function ImageDemoContent() {
   return (
     <div className="img-frame">
       <div className="img-canvas">
@@ -21,5 +27,66 @@ export function ImagePreview() {
         <span>· 未审阅</span>
       </div>
     </div>
+  );
+}
+
+export function ImagePreview({ file, onMetaChange }) {
+  const [status, setStatus] = React.useState('idle');
+  const [objectUrl, setObjectUrl] = React.useState(null);
+  const [error, setError] = React.useState(null);
+  const urlRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (file.source === 'demo') return;
+    setStatus('loading');
+    window.api.file.read(file.path)
+      .then(({ bytes, size, mtime }) => {
+        const ext = file.name.split('.').pop()?.toLowerCase() ?? 'png';
+        const blob = new Blob([bytes], { type: MIME_MAP[ext] ?? 'image/png' });
+        const url = URL.createObjectURL(blob);
+        if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+        urlRef.current = url;
+        setObjectUrl(url);
+        onMetaChange?.({ size, mtime });
+        setStatus('loaded');
+      })
+      .catch(err => { setStatus('error'); setError(err.message); });
+    return () => { if (urlRef.current) URL.revokeObjectURL(urlRef.current); };
+  }, [file.id]);
+
+  if (file.source === 'demo') return <ImageDemoContent/>;
+
+  const frame = (children) => (
+    <div className="img-frame">
+      <div className="img-canvas" style={{ position: 'relative' }}>
+        {children}
+      </div>
+      <div className="img-meta">
+        <span>{file.name}</span>
+      </div>
+    </div>
+  );
+
+  if (status === 'idle' || status === 'loading') {
+    return frame(<div className="img-loading-ring"/>);
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="preview-error">
+        <div className="err-icon"><Ic.alert/></div>
+        <div>无法加载图片</div>
+        <div className="err-msg">{error}</div>
+        <button className="retry-btn" onClick={() => setStatus('idle')}>重试</button>
+      </div>
+    );
+  }
+
+  return frame(
+    <img
+      src={objectUrl}
+      alt={file.name}
+      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
+    />
   );
 }

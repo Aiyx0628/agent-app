@@ -11,10 +11,14 @@ export function Preview({ file, zoomRef, scrollToRef }) {
   const [zoom, setZoom] = React.useState(100);
   const [currentPage, setCurrentPage] = React.useState(1);
   const [pptIdx, setPptIdx] = React.useState(0);
+  const [runtimeMeta, setRuntimeMeta] = React.useState({});
   const bodyRef = React.useRef(null);
   const scale = zoom / 100;
 
   React.useImperativeHandle(zoomRef, () => ({ zoom, setZoom }));
+
+  // Clear runtimeMeta when switching files
+  React.useEffect(() => { setRuntimeMeta({}); }, [file.id]);
 
   // Expose scrollToAnchor
   React.useImperativeHandle(scrollToRef, () => ({
@@ -51,7 +55,11 @@ export function Preview({ file, zoomRef, scrollToRef }) {
   const kind = file.kind;
   const meta = KIND_META[kind] || KIND_META.pdf;
 
-  const pagesTotal = kind === 'pdf' ? (file.pages || 5) : kind === 'ppt' ? 24 : null;
+  const pagesTotal =
+    runtimeMeta.pageCount ??
+    (kind === 'pdf' ? (file.pages ?? null) : null);
+
+  const pptTotal = runtimeMeta.pageCount ?? (file.source === 'demo' ? PPT_SLIDES.length : null);
 
   return (
     <div className="pane center">
@@ -64,16 +72,18 @@ export function Preview({ file, zoomRef, scrollToRef }) {
         </div>
         <div className="doc-name">{file.name}</div>
         <div className="spacer"/>
-        {kind === 'pdf' && (
+        {kind === 'pdf' && pagesTotal != null && (
           <div className="pager">
             <span>{String(currentPage).padStart(2, '0')}</span>
             <span className="sep">/</span>
             <span>{String(pagesTotal).padStart(2, '0')} 页</span>
           </div>
         )}
-        {kind === 'ppt' && (
+        {kind === 'ppt' && pptTotal != null && (
           <div className="pager">
-            <span>{String(pptIdx + 1).padStart(2, '0')}</span><span className="sep">/</span><span>{String(PPT_SLIDES.length).padStart(2, '0')}</span>
+            <span>{String(pptIdx + 1).padStart(2, '0')}</span>
+            <span className="sep">/</span>
+            <span>{String(pptTotal).padStart(2, '0')}</span>
           </div>
         )}
         <div className="zoom">
@@ -87,11 +97,11 @@ export function Preview({ file, zoomRef, scrollToRef }) {
           <div className="cp-scroll" style={{
             zoom: kind === 'excel' || kind === 'image' ? 1 : scale,
           }}>
-            {kind === 'pdf' && <PdfPreview/>}
-            {kind === 'word' && <WordPreview/>}
-            {kind === 'excel' && <ExcelPreview/>}
-            {kind === 'ppt' && <PptPreview slideIdx={pptIdx} setSlideIdx={setPptIdx}/>}
-            {kind === 'image' && <ImagePreview/>}
+            {kind === 'pdf'   && <PdfPreview   file={file} onMetaChange={setRuntimeMeta}/>}
+            {kind === 'word'  && <WordPreview  file={file} onMetaChange={setRuntimeMeta}/>}
+            {kind === 'excel' && <ExcelPreview file={file} onMetaChange={setRuntimeMeta}/>}
+            {kind === 'ppt'   && <PptPreview   file={file} slideIdx={pptIdx} setSlideIdx={setPptIdx} onMetaChange={setRuntimeMeta}/>}
+            {kind === 'image' && <ImagePreview file={file} onMetaChange={setRuntimeMeta}/>}
           </div>
         </div>
       </div>

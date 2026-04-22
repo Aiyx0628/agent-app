@@ -11,9 +11,9 @@ export const FILE_TREE = [
         type: 'folder',
         name: '01 合同',
         children: [
-          { id: 'doc-contract-main', type: 'file', kind: 'pdf', name: '双方合同《福朗电子》.pdf', starred: true, issues: 9, pages: 15 },
-          { id: 'doc-nda', type: 'file', kind: 'pdf', name: '保密协议 NDA v3.pdf', issues: 2, pages: 4 },
-          { id: 'doc-addendum', type: 'file', kind: 'word', name: '补充协议.docx', issues: 1, pages: 3 },
+          { id: 'doc-contract-main', type: 'file', kind: 'pdf', source: 'demo', name: '双方合同《福朗电子》.pdf', starred: true, issues: 9, pages: 15 },
+          { id: 'doc-nda', type: 'file', kind: 'pdf', source: 'demo', name: '保密协议 NDA v3.pdf', issues: 2, pages: 4 },
+          { id: 'doc-addendum', type: 'file', kind: 'word', source: 'demo', name: '补充协议.docx', issues: 1, pages: 3 },
         ],
       },
       {
@@ -21,8 +21,8 @@ export const FILE_TREE = [
         type: 'folder',
         name: '02 财务与报价',
         children: [
-          { id: 'doc-quote', type: 'file', kind: 'excel', name: '报价清单 Q2.xlsx', issues: 3 },
-          { id: 'doc-budget', type: 'file', kind: 'excel', name: '预算拆分.xlsx' },
+          { id: 'doc-quote', type: 'file', kind: 'excel', source: 'demo', name: '报价清单 Q2.xlsx', issues: 3 },
+          { id: 'doc-budget', type: 'file', kind: 'excel', source: 'demo', name: '预算拆分.xlsx' },
         ],
       },
       {
@@ -30,9 +30,9 @@ export const FILE_TREE = [
         type: 'folder',
         name: '03 需求与设计',
         children: [
-          { id: 'doc-srs', type: 'file', kind: 'word', name: '需求规格说明书.docx', issues: 2 },
-          { id: 'doc-intro', type: 'file', kind: 'ppt', name: '项目启动会 v2.pptx' },
-          { id: 'doc-arch', type: 'file', kind: 'image', name: '系统架构图.png' },
+          { id: 'doc-srs', type: 'file', kind: 'word', source: 'demo', name: '需求规格说明书.docx', issues: 2 },
+          { id: 'doc-intro', type: 'file', kind: 'ppt', source: 'demo', name: '项目启动会 v2.pptx' },
+          { id: 'doc-arch', type: 'file', kind: 'image', source: 'demo', name: '系统架构图.png' },
         ],
       },
       {
@@ -40,8 +40,8 @@ export const FILE_TREE = [
         type: 'folder',
         name: '04 往期归档',
         children: [
-          { id: 'doc-old-1', type: 'file', kind: 'pdf', name: '2024 框架协议.pdf' },
-          { id: 'doc-old-2', type: 'file', kind: 'pdf', name: '验收单.pdf' },
+          { id: 'doc-old-1', type: 'file', kind: 'pdf', source: 'demo', name: '2024 框架协议.pdf' },
+          { id: 'doc-old-2', type: 'file', kind: 'pdf', source: 'demo', name: '验收单.pdf' },
         ],
       },
     ],

@@ -1,7 +1,17 @@
-// PDF preview — 15-page contract, pages with anchored highlights
+// PDF preview — demo content preserved, real files show skeleton until parser is integrated
 import * as React from 'react';
+import { Ic } from './icons';
 
-export function PdfPreview({ zoom, onPageChange }) {
+function PdfPage({ pageNo, children }) {
+  return (
+    <div className="pdf-page" data-page={pageNo}>
+      <div className="page-num">第 {pageNo} 页</div>
+      {children}
+    </div>
+  );
+}
+
+function PdfDemoContent() {
   return (
     <>
       <PdfPage pageNo={1}>
@@ -62,11 +72,70 @@ export function PdfPreview({ zoom, onPageChange }) {
   );
 }
 
-function PdfPage({ pageNo, children }) {
+function PdfSkeletonPage() {
   return (
-    <div className="pdf-page" data-page={pageNo}>
-      <div className="page-num">第 {pageNo} 页</div>
-      {children}
+    <div className="pdf-skeleton-page">
+      <div className="skeleton sk-title"/>
+      <div className="skeleton sk-h2"/>
+      {[100, 72, 88, 100, 64].map((w, i) => (
+        <div key={i} className="skeleton sk-line" style={{ width: w + '%' }}/>
+      ))}
+      <div className="skeleton sk-space"/>
+      <div className="skeleton sk-h2"/>
+      {[100, 82, 100, 70, 58, 100].map((w, i) => (
+        <div key={i} className="skeleton sk-line" style={{ width: w + '%' }}/>
+      ))}
+      <div className="skeleton sk-space"/>
+      <div className="skeleton sk-h2"/>
+      {[100, 76, 90].map((w, i) => (
+        <div key={i} className="skeleton sk-line" style={{ width: w + '%' }}/>
+      ))}
+    </div>
+  );
+}
+
+export function PdfPreview({ file, onMetaChange }) {
+  const [status, setStatus] = React.useState('idle');
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    if (file.source === 'demo') return;
+    setStatus('loading');
+    window.api.file.read(file.path)
+      .then(({ size, mtime }) => {
+        onMetaChange?.({ size, mtime });
+        setStatus('loaded');
+      })
+      .catch(err => { setStatus('error'); setError(err.message); });
+  }, [file.id]);
+
+  if (file.source === 'demo') return <PdfDemoContent/>;
+
+  if (status === 'idle' || status === 'loading') {
+    return (
+      <>
+        <PdfSkeletonPage/>
+        <PdfSkeletonPage/>
+        <PdfSkeletonPage/>
+      </>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="preview-error">
+        <div className="err-icon"><Ic.alert/></div>
+        <div>无法加载文件</div>
+        <div className="err-msg">{error}</div>
+        <button className="retry-btn" onClick={() => setStatus('idle')}>重试</button>
+      </div>
+    );
+  }
+
+  // status === 'loaded' — PDF parser integration pending
+  return (
+    <div className="preview-error">
+      <div style={{ color: 'var(--ink-3)', fontSize: 12 }}>文件已加载 · PDF 渲染器待接入</div>
     </div>
   );
 }
