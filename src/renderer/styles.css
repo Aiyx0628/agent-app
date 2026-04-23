@@ -1588,3 +1588,68 @@ body.density-spacious .issue-body { padding: 12px 14px 14px; }
   display: none;
   pointer-events: none;
 }
+
+/* ===== AI Settings Panel ===== */
+.ai-settings {
+  border-bottom: 1px solid var(--border);
+  background: var(--accent-softer);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ai-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ai-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ai-settings label > span {
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+.ai-settings input {
+  font-size: 12px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--ink-1);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: ui-monospace, 'SF Mono', monospace;
+}
+
+.ai-settings input:focus {
+  border-color: var(--accent);
+}
+
+.ai-settings-save {
+  align-self: flex-end;
+  padding: 4px 14px;
+  font-size: 12px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.ai-settings-save:hover {
+  opacity: 0.88;
+}

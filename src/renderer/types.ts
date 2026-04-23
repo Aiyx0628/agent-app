@@ -39,11 +39,27 @@ export interface DirEntry {
   children?: DirEntry[];
 }
 
+export interface AiConfig {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
+
 export interface ElectronAPI {
   file: {
     openDialog(opts?: { title?: string; extensions?: string[] }): Promise<{ canceled: boolean; paths: string[] }>;
     read(path: string): Promise<{ bytes: Uint8Array; mtime: number; size: number }>;
     stat(path: string): Promise<{ size: number; mtime: number; exists: boolean }>;
+  };
+  ai: {
+    getConfig(): Promise<AiConfig>;
+    setConfig(patch: Partial<AiConfig>): Promise<void>;
+    chat(
+      messages: Array<{ role: string; content: string }>,
+      onChunk: (text: string) => void,
+      onDone: () => void,
+      onError: (err: string) => void,
+    ): () => void;
   };
 }
 

@@ -9,4 +9,37 @@ contextBridge.exposeInMainWorld('api', {
     stat: (path: string) =>
       ipcRenderer.invoke('file:stat', { path }),
   },
+
+  ai: {
+    getConfig: (): Promise<{ baseUrl: string; apiKey: string; model: string }> =>
+      ipcRenderer.invoke('ai:get-config'),
+
+    setConfig: (patch: Partial<{ baseUrl: string; apiKey: string; model: string }>): Promise<void> =>
+      ipcRenderer.invoke('ai:set-config', patch),
+
+    chat: (
+      messages: Array<{ role: string; content: string }>,
+      onChunk: (text: string) => void,
+      onDone: () => void,
+      onError: (err: string) => void,
+    ): (() => void) => {
+      const reqId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+      const chunkH = (_: unknown, id: string, text: string) => { if (id === reqId) onChunk(text); };
+      const doneH  = (_: unknown, id: string)              => { if (id === reqId) { cleanup(); onDone(); } };
+      const errorH = (_: unknown, id: string, err: string) => { if (id === reqId) { cleanup(); onError(err); } };
+
+      const cleanup = () => {
+        ipcRenderer.removeListener('ai:chunk', chunkH);
+        ipcRenderer.removeListener('ai:done',  doneH);
+        ipcRenderer.removeListener('ai:error', errorH);
+      };
+
+      ipcRenderer.on('ai:chunk', chunkH);
+      ipcRenderer.on('ai:done',  doneH);
+      ipcRenderer.on('ai:error', errorH);
+      ipcRenderer.send('ai:chat', reqId, messages);
+      return cleanup;
+    },
+  },
 });

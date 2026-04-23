@@ -2,6 +2,74 @@ import * as React from 'react';
 import { CONTRACT_ISSUES, INITIAL_CHAT } from './data';
 import { Ic } from './icons';
 
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function contentToText(content) {
+  return content.map(c => c.t ?? c.label ?? '').join('');
+}
+
+function toApiMessages(msgs) {
+  return msgs.map(m => ({ role: m.role, content: contentToText(m.content) }));
+}
+
+// ── AI Settings panel ─────────────────────────────────────────────────────────
+
+function AiSettings({ onClose }) {
+  const [cfg, setCfg] = React.useState({ baseUrl: '', apiKey: '', model: '' });
+  const [saved, setSaved] = React.useState(false);
+
+  React.useEffect(() => {
+    window.api?.ai?.getConfig().then(c => setCfg(c));
+  }, []);
+
+  const save = async () => {
+    await window.api?.ai?.setConfig(cfg);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  };
+
+  return (
+    <div className="ai-settings">
+      <div className="ai-settings-header">
+        <span>AI 模型配置</span>
+        <button className="icon-btn" onClick={onClose}><Ic.close/></button>
+      </div>
+      <label>
+        <span>Base URL</span>
+        <input
+          type="text"
+          value={cfg.baseUrl}
+          placeholder="https://api.openai.com/v1"
+          onChange={e => setCfg(c => ({ ...c, baseUrl: e.target.value }))}
+        />
+      </label>
+      <label>
+        <span>API Key</span>
+        <input
+          type="password"
+          value={cfg.apiKey}
+          placeholder="sk-..."
+          onChange={e => setCfg(c => ({ ...c, apiKey: e.target.value }))}
+        />
+      </label>
+      <label>
+        <span>Model</span>
+        <input
+          type="text"
+          value={cfg.model}
+          placeholder="gpt-4o"
+          onChange={e => setCfg(c => ({ ...c, model: e.target.value }))}
+        />
+      </label>
+      <button className="ai-settings-save" onClick={save}>
+        {saved ? '已保存 ✓' : '保存'}
+      </button>
+    </div>
+  );
+}
+
+// ── Chat component ────────────────────────────────────────────────────────────
+
 export function Chat({ activeIssue, onJumpToIssue, issues: propIssues }) {
   const [tab, setTab] = React.useState('issues');
   const issues = propIssues ?? CONTRACT_ISSUES;
@@ -9,33 +77,63 @@ export function Chat({ activeIssue, onJumpToIssue, issues: propIssues }) {
   const [messages, setMessages] = React.useState(INITIAL_CHAT);
   const [draft, setDraft] = React.useState('');
   const [typing, setTyping] = React.useState(false);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
   const msgsRef = React.useRef(null);
+  const cancelRef = React.useRef(null);
 
   React.useEffect(() => {
     if (msgsRef.current) msgsRef.current.scrollTop = msgsRef.current.scrollHeight;
   }, [messages, typing, tab]);
 
+  // Cancel in-flight request when unmounting
+  React.useEffect(() => () => cancelRef.current?.(), []);
+
   const send = () => {
-    if (!draft.trim()) return;
+    if (!draft.trim() || typing) return;
+
     const userMsg = { id: 'u-' + Date.now(), role: 'user', content: [{ t: draft }] };
-    setMessages(m => [...m, userMsg]);
+    const aId = 'a-' + Date.now();
+    const pendingMsg = { id: aId, role: 'assistant', content: [{ t: '' }] };
+
+    const apiMessages = [...toApiMessages(messages), { role: 'user', content: draft }];
+
+    setMessages(m => [...m, userMsg, pendingMsg]);
     setDraft('');
     setTyping(true);
-    setTimeout(() => {
-      const reply = {
-        id: 'a-' + Date.now(),
-        role: 'assistant',
-        content: [
-          { t: '好的，我将针对 ' },
-          { cite: 'i-3', label: '签订日期' },
-          { t: ' 与 ' },
-          { cite: 'i-4', label: '付款尾差' },
-          { t: ' 两项为您展开解读。点击引用可直接跳转到原文位置。' },
-        ],
-      };
-      setMessages(m => [...m, reply]);
-      setTyping(false);
-    }, 1100);
+
+    const textAccum = { v: '' };
+
+    cancelRef.current = window.api?.ai?.chat(
+      apiMessages,
+      (chunk) => {
+        textAccum.v += chunk;
+        const snap = textAccum.v;
+        setMessages(m => m.map(msg =>
+          msg.id === aId ? { ...msg, content: [{ t: snap }] } : msg
+        ));
+      },
+      () => {
+        setTyping(false);
+        cancelRef.current = null;
+      },
+      (err) => {
+        setMessages(m => m.map(msg =>
+          msg.id === aId ? { ...msg, content: [{ t: '⚠ ' + err }] } : msg
+        ));
+        setTyping(false);
+        cancelRef.current = null;
+      },
+    );
+
+    // Fallback: if api not available (no main process), show placeholder
+    if (!window.api?.ai) {
+      setTimeout(() => {
+        setMessages(m => m.map(msg =>
+          msg.id === aId ? { ...msg, content: [{ t: '（未配置 AI 服务，请在设置中填写 API Key）' }] } : msg
+        ));
+        setTyping(false);
+      }, 600);
+    }
   };
 
   const severityLabel = (s) => ({ high: '高', med: '中', low: '低' }[s] || s);
@@ -47,7 +145,18 @@ export function Chat({ activeIssue, onJumpToIssue, issues: propIssues }) {
         <span className="title">AI 合同助手</span>
         <div style={{ flex: 1 }}/>
         <span className="stat">发现 {issueCount} 项问题</span>
+        <button
+          className={`icon-btn ${settingsOpen ? 'active' : ''}`}
+          title="AI 设置"
+          style={{ marginLeft: 6 }}
+          onClick={() => setSettingsOpen(o => !o)}
+        >
+          <Ic.gear/>
+        </button>
       </div>
+
+      {settingsOpen && <AiSettings onClose={() => setSettingsOpen(false)}/>}
+
       <div className="tabs">
         <button className={`tab ${tab === 'convo' ? 'active' : ''}`} onClick={() => setTab('convo')}>
           <Ic.chat/> 对话
@@ -139,7 +248,7 @@ export function Chat({ activeIssue, onJumpToIssue, issues: propIssues }) {
               />
               <div className="bar">
                 <span className="tag"><Ic.paperclip/> 双方合同《福朗电子》.pdf</span>
-                <button className={`send ${!draft.trim() ? 'disabled' : ''}`} onClick={send}>
+                <button className={`send ${!draft.trim() || typing ? 'disabled' : ''}`} onClick={send}>
                   <Ic.send/>
                 </button>
               </div>
@@ -150,6 +259,8 @@ export function Chat({ activeIssue, onJumpToIssue, issues: propIssues }) {
     </div>
   );
 }
+
+// ── Message bubble ────────────────────────────────────────────────────────────
 
 function Msg({ m, onCite }) {
   const isUser = m.role === 'user';
@@ -165,7 +276,7 @@ function Msg({ m, onCite }) {
               </span>
             );
           }
-          return <span key={i}>{c.t}</span>;
+          return <span key={i} style={{ whiteSpace: 'pre-wrap' }}>{c.t}</span>;
         })}
       </div>
     </div>
@@ -173,7 +284,6 @@ function Msg({ m, onCite }) {
 }
 
 function hl(text) {
-  // highlight <mark>...</mark> markers where we want emphasis
   return text
     .replace(/知识产权/g, '<mark>知识产权</mark>')
     .replace(/1 个月/g, '<mark>1 个月</mark>')
