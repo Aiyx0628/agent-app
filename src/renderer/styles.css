@@ -1496,3 +1496,95 @@ body.density-spacious .issue-body { padding: 12px 14px 14px; }
   0%   { background: oklch(0.75 0.22 55 / 0.65); }
   100% { background: oklch(0.85 0.18 55 / 0.45); }
 }
+
+/* ===== PDF Text Layer ===== */
+.pdfTextLayer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  opacity: 1;
+  line-height: 1;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+.pdfTextLayer span,
+.pdfTextLayer br {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+.pdfTextLayer .markedContent {
+  top: 0;
+  height: 0;
+}
+.pdfTextLayer .highlight {
+  margin: -1px;
+  padding: 1px;
+  background-color: oklch(0.75 0.12 250 / 0.35);
+  border-radius: 3px;
+}
+.pdfTextLayer .highlight.selected {
+  background-color: oklch(0.65 0.16 240 / 0.5);
+}
+.pdfTextLayer ::selection {
+  background: oklch(0.62 0.17 250 / 0.4);
+  color: transparent;
+}
+/* 阻止 endOfContent 抢焦点 */
+.pdfTextLayer .endOfContent {
+  display: block;
+  position: absolute;
+  inset: 100% 0 0;
+  z-index: -1;
+  cursor: default;
+  user-select: none;
+}
+.pdfTextLayer.selecting .endOfContent {
+  top: 0;
+}
+
+/* ===== PDF Annotation Layer ===== */
+.pdfAnnotationLayer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+.pdfAnnotationLayer section {
+  position: absolute;
+  pointer-events: auto;
+}
+/* 链接注释 */
+.pdfAnnotationLayer .linkAnnotation > a,
+.pdfAnnotationLayer .buttonWidgetAnnotation.pushButton > a {
+  display: block;
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+.pdfAnnotationLayer .linkAnnotation > a:hover {
+  background: oklch(0.7 0.15 250 / 0.15);
+  border-radius: 2px;
+}
+/* 内置高亮注释 */
+.pdfAnnotationLayer .highlightAnnotation {
+  mix-blend-mode: multiply;
+  opacity: 0.7;
+  cursor: pointer;
+}
+/* 下划线 / 删除线 */
+.pdfAnnotationLayer .underlineAnnotation,
+.pdfAnnotationLayer .strikeoutAnnotation,
+.pdfAnnotationLayer .squigglyAnnotation {
+  pointer-events: none;
+  opacity: 0.75;
+}
+/* 弹出窗口 */
+.pdfAnnotationLayer .popupAnnotation {
+  display: none;
+  pointer-events: none;
+}
