@@ -23,7 +23,10 @@ export function PdfPageCanvas({ doc, pageIndex, scale, highlightRects, highlight
     (async () => {
       try {
         const page = await doc.getPage(pageIndex + 1); // pdfjs is 1-based
-        const vp = page.getViewport({ scale });
+        const dpr = window.devicePixelRatio || 1;
+        // logicalVp 用于坐标计算和 CSS 尺寸，renderVp 用于 canvas 物理像素
+        const logicalVp = page.getViewport({ scale });
+        const renderVp = page.getViewport({ scale: scale * dpr });
         if (cancelled) return;
 
         const canvas = canvasRef.current;
@@ -31,11 +34,14 @@ export function PdfPageCanvas({ doc, pageIndex, scale, highlightRects, highlight
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        canvas.width = Math.floor(vp.width);
-        canvas.height = Math.floor(vp.height);
+        // 物理像素按 DPR 放大，CSS 尺寸保持逻辑尺寸
+        canvas.width = Math.floor(renderVp.width);
+        canvas.height = Math.floor(renderVp.height);
+        canvas.style.width = Math.floor(logicalVp.width) + 'px';
+        canvas.style.height = Math.floor(logicalVp.height) + 'px';
 
-        await page.render({ canvasContext: ctx, viewport: vp, canvas }).promise;
-        if (!cancelled) setViewport(vp);
+        await page.render({ canvasContext: ctx, viewport: renderVp, canvas }).promise;
+        if (!cancelled) setViewport(logicalVp);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       }
