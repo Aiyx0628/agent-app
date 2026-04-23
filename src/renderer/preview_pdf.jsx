@@ -89,7 +89,7 @@ function PdfSkeletonPage() {
 }
 
 // ===== 主组件（forwardRef 暴露 scrollToPageAndRect） =====
-export const PdfPreview = React.forwardRef(function PdfPreview({ file, onMetaChange, scale = 1 }, ref) {
+export const PdfPreview = React.forwardRef(function PdfPreview({ file, onMetaChange, scale = 1, pageLayout = 'single' }, ref) {
   const [status, setStatus] = React.useState('idle');
   const [error, setError] = React.useState(null);
   const [docProxy, setDocProxy] = React.useState(null);
@@ -143,6 +143,7 @@ export const PdfPreview = React.forwardRef(function PdfPreview({ file, onMetaCha
       ref={viewerRef}
       doc={docProxy}
       scale={scale}
+      pageLayout={pageLayout}
       onPageCountChange={(count) => onMetaChange?.({ pageCount: count })}
     />
   );

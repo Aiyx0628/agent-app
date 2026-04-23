@@ -12,14 +12,18 @@ export function Preview({ file, zoomRef, scrollToRef }) {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [pptIdx, setPptIdx] = React.useState(0);
   const [runtimeMeta, setRuntimeMeta] = React.useState({});
+  const [pageLayout, setPageLayout] = React.useState('single');
   const bodyRef = React.useRef(null);
   const pdfPreviewRef = React.useRef(null);
   const scale = zoom / 100;
 
   React.useImperativeHandle(zoomRef, () => ({ zoom, setZoom }));
 
-  // Clear runtimeMeta when switching files
-  React.useEffect(() => { setRuntimeMeta({}); }, [file.id]);
+  // Clear runtimeMeta and reset layout when switching files
+  React.useEffect(() => {
+    setRuntimeMeta({});
+    setPageLayout('single');
+  }, [file.id]);
 
   React.useImperativeHandle(scrollToRef, () => ({
     scrollToAnchor: (anchorId) => {
@@ -38,31 +42,40 @@ export function Preview({ file, zoomRef, scrollToRef }) {
     },
   }));
 
-  // Track current page (PDF only)
+  // Track current page (demo PDF only — real PDF uses canvas data-page)
   React.useEffect(() => {
     if (!bodyRef.current || file.kind !== 'pdf') return;
     const body = bodyRef.current;
     const onScroll = () => {
-      const pages = body.querySelectorAll('.pdf-page');
+      const pages = body.querySelectorAll('.pdf-page, .pdf-canvas-page');
       const top = body.scrollTop + 120;
       let p = 1;
       pages.forEach((pg) => {
-        if (pg.offsetTop <= top) p = parseInt(pg.dataset.page, 10);
+        const pageNum = parseInt(pg.dataset.page, 10);
+        if (!isNaN(pageNum) && pg.offsetTop <= top) {
+          // demo pages are 1-based, canvas pages are 0-based
+          p = file.source === 'demo' ? pageNum : pageNum + 1;
+        }
       });
       setCurrentPage(p);
     };
     body.addEventListener('scroll', onScroll);
     return () => body.removeEventListener('scroll', onScroll);
-  }, [file.kind]);
+  }, [file.kind, file.source]);
 
   const kind = file.kind;
   const meta = KIND_META[kind] || KIND_META.pdf;
+  const isRealPdf = kind === 'pdf' && file.source === 'local';
 
   const pagesTotal =
     runtimeMeta.pageCount ??
     (kind === 'pdf' ? (file.pages ?? null) : null);
 
   const pptTotal = runtimeMeta.pageCount ?? (file.source === 'demo' ? PPT_SLIDES.length : null);
+
+  // Real PDF: scale is handled by canvas viewport — no CSS zoom needed
+  // Demo PDF and other types: CSS zoom scales HTML content
+  const cssZoom = isRealPdf || kind === 'excel' || kind === 'image' ? 1 : scale;
 
   return (
     <div className="pane center">
@@ -89,6 +102,15 @@ export function Preview({ file, zoomRef, scrollToRef }) {
             <span>{String(pptTotal).padStart(2, '0')}</span>
           </div>
         )}
+        {isRealPdf && (
+          <button
+            className={`tb-btn${pageLayout === 'double' ? ' active' : ''}`}
+            title="双页展示"
+            onClick={() => setPageLayout(l => l === 'single' ? 'double' : 'single')}
+          >
+            ⊞ 双页
+          </button>
+        )}
         <div className="zoom">
           <button onClick={() => setZoom(z => Math.max(50, z - 10))}><Ic.minus/></button>
           <div className="val">{zoom}%</div>
@@ -97,10 +119,8 @@ export function Preview({ file, zoomRef, scrollToRef }) {
       </div>
       <div className="cp-body" ref={bodyRef}>
         <div className="cp-scroll-wrap">
-          <div className="cp-scroll" style={{
-            zoom: kind === 'excel' || kind === 'image' ? 1 : scale,
-          }}>
-            {kind === 'pdf'   && <PdfPreview   ref={pdfPreviewRef} file={file} onMetaChange={setRuntimeMeta} scale={scale}/>}
+          <div className="cp-scroll" style={{ zoom: cssZoom }}>
+            {kind === 'pdf'   && <PdfPreview   ref={pdfPreviewRef} file={file} onMetaChange={setRuntimeMeta} scale={scale} pageLayout={pageLayout}/>}
             {kind === 'word'  && <WordPreview  file={file} onMetaChange={setRuntimeMeta}/>}
             {kind === 'excel' && <ExcelPreview file={file} onMetaChange={setRuntimeMeta}/>}
             {kind === 'ppt'   && <PptPreview   file={file} slideIdx={pptIdx} setSlideIdx={setPptIdx} onMetaChange={setRuntimeMeta}/>}

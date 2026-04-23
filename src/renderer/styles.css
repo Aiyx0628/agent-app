@@ -370,7 +370,6 @@ input { font: inherit; }
   flex-direction: column;
   align-items: center;
   gap: 24px;
-  min-width: 0;
 }
 
 /* ---------- PDF preview ---------- */
@@ -1469,7 +1468,14 @@ body.density-spacious .issue-body { padding: 12px 14px 14px; }
 
 .pdf-canvas-page canvas {
   display: block;
-  max-width: 100%;
+}
+
+/* ===== PDF 双页布局行 ===== */
+.pdf-double-row {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  align-items: flex-start;
 }
 
 /* ===== 高亮矩形 ===== */

@@ -15,11 +15,12 @@ export interface PdfViewerHandle {
 interface PdfRealViewerProps {
   doc: PDFDocumentProxy;
   scale: number;
+  pageLayout?: 'single' | 'double';
   onPageCountChange?(count: number): void;
 }
 
 export const PdfRealViewer = React.forwardRef<PdfViewerHandle, PdfRealViewerProps>(
-  function PdfRealViewer({ doc, scale, onPageCountChange }, ref) {
+  function PdfRealViewer({ doc, scale, pageLayout = 'single', onPageCountChange }, ref) {
     const containerRef = React.useRef<HTMLDivElement>(null);
     const [activeHighlight, setActiveHighlight] = React.useState<ActiveHighlight | null>(null);
     const pageCount = doc.numPages;
@@ -40,17 +41,36 @@ export const PdfRealViewer = React.forwardRef<PdfViewerHandle, PdfRealViewerProp
       },
     }));
 
+    const pageProps = (i: number) => ({
+      key: i,
+      doc,
+      pageIndex: i,
+      scale,
+      highlightRects: activeHighlight?.pageIndex === i ? activeHighlight.rects : undefined,
+      highlightActive: activeHighlight?.pageIndex === i,
+    });
+
+    if (pageLayout === 'double') {
+      const pairs: [number, number | null][] = [];
+      for (let i = 0; i < pageCount; i += 2) {
+        pairs.push([i, i + 1 < pageCount ? i + 1 : null]);
+      }
+      return (
+        <div className="pdf-real-scroll" ref={containerRef}>
+          {pairs.map(([a, b], pairIdx) => (
+            <div key={pairIdx} className="pdf-double-row">
+              <PdfPageCanvas {...pageProps(a)}/>
+              {b !== null && <PdfPageCanvas {...pageProps(b)}/>}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
     return (
       <div className="pdf-real-scroll" ref={containerRef}>
         {Array.from({ length: pageCount }, (_, i) => (
-          <PdfPageCanvas
-            key={i}
-            doc={doc}
-            pageIndex={i}
-            scale={scale}
-            highlightRects={activeHighlight?.pageIndex === i ? activeHighlight.rects : undefined}
-            highlightActive={activeHighlight?.pageIndex === i}
-          />
+          <PdfPageCanvas {...pageProps(i)}/>
         ))}
       </div>
     );
