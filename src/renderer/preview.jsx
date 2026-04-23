@@ -13,6 +13,7 @@ export function Preview({ file, zoomRef, scrollToRef }) {
   const [pptIdx, setPptIdx] = React.useState(0);
   const [runtimeMeta, setRuntimeMeta] = React.useState({});
   const bodyRef = React.useRef(null);
+  const pdfPreviewRef = React.useRef(null);
   const scale = zoom / 100;
 
   React.useImperativeHandle(zoomRef, () => ({ zoom, setZoom }));
@@ -20,7 +21,6 @@ export function Preview({ file, zoomRef, scrollToRef }) {
   // Clear runtimeMeta when switching files
   React.useEffect(() => { setRuntimeMeta({}); }, [file.id]);
 
-  // Expose scrollToAnchor
   React.useImperativeHandle(scrollToRef, () => ({
     scrollToAnchor: (anchorId) => {
       const body = bodyRef.current;
@@ -32,6 +32,9 @@ export function Preview({ file, zoomRef, scrollToRef }) {
       void el.offsetWidth;
       el.classList.add('flash');
       setTimeout(() => el.classList.remove('flash'), 1800);
+    },
+    scrollToPageAndRect: (pageIndex, rects) => {
+      pdfPreviewRef.current?.scrollToPageAndRect(pageIndex, rects);
     },
   }));
 
@@ -97,7 +100,7 @@ export function Preview({ file, zoomRef, scrollToRef }) {
           <div className="cp-scroll" style={{
             zoom: kind === 'excel' || kind === 'image' ? 1 : scale,
           }}>
-            {kind === 'pdf'   && <PdfPreview   file={file} onMetaChange={setRuntimeMeta}/>}
+            {kind === 'pdf'   && <PdfPreview   ref={pdfPreviewRef} file={file} onMetaChange={setRuntimeMeta} scale={scale}/>}
             {kind === 'word'  && <WordPreview  file={file} onMetaChange={setRuntimeMeta}/>}
             {kind === 'excel' && <ExcelPreview file={file} onMetaChange={setRuntimeMeta}/>}
             {kind === 'ppt'   && <PptPreview   file={file} slideIdx={pptIdx} setSlideIdx={setPptIdx} onMetaChange={setRuntimeMeta}/>}

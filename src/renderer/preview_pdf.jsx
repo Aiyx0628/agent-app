@@ -1,7 +1,9 @@
-// PDF preview — demo content preserved, real files show skeleton until parser is integrated
 import * as React from 'react';
 import { Ic } from './icons';
+import { loadPdf } from '../pdf/engine';
+import { PdfRealViewer } from '../pdf/viewer';
 
+// ===== Demo 内容 =====
 function PdfPage({ pageNo, children }) {
   return (
     <div className="pdf-page" data-page={pageNo}>
@@ -29,7 +31,6 @@ function PdfDemoContent() {
         <p className="pdf-p">1.2 "许可软件" 指乙方已有并向甲方授权使用的标准软件模块，范围见附件一。</p>
         <p className="pdf-p">1.3 "定制软件" 指由乙方根据本合同及本项目研制所得的软件。</p>
       </PdfPage>
-
       <PdfPage pageNo={2}>
         <h2 className="pdf-h2">第二条 合同金额与支付方式</h2>
         <p className="pdf-p">合同金额合计：<b className="cite-anchor" id="a-payment">柒拾玖万元整（¥790,000.00）</b>，分三期支付。</p>
@@ -41,16 +42,14 @@ function PdfDemoContent() {
         <h2 className="pdf-h2">第三条 争议解决</h2>
         <p className="pdf-p cite-anchor" id="a-terms">双方因本合同引起的任何争议，应首先通过友好协商解决；协商不成的，任一方可以向有管辖权的机关主张权利。</p>
       </PdfPage>
-
       <PdfPage pageNo={3}>
         <h2 className="pdf-h2">第五条 验收</h2>
         <p className="pdf-p">5.1 乙方应按交付物清单向甲方交付系统及相关文档。</p>
         <p className="pdf-p">5.2 甲方应在交付后 15 个工作日内组织初步验收。</p>
-        <p className="pdf-p cite-anchor" id="a-acceptance">5.3 系统正式上线运行 1 个月，若甲方未签字验收或未书面提出整改意见，视为已通过验收。附件三 3、甲方应在 15 天内书面向乙方提出，逾期未提出异议视为定稿合格。</p>
+        <p className="pdf-p cite-anchor" id="a-acceptance">5.3 系统正式上线运行 1 个月，若甲方未签字验收或未书面提出整改意见，视为已通过验收。</p>
         <h2 className="pdf-h2">第六条 交付物</h2>
         <p className="pdf-p cite-anchor" id="a-deliverables">乙方应交付：源代码、部署文档、用户手册、培训材料。具体明细以附件二为准。</p>
       </PdfPage>
-
       <PdfPage pageNo={4}>
         <h2 className="pdf-h2">第七条 违约责任</h2>
         <p className="pdf-p cite-anchor" id="a-liability">任何一方违反本合同约定，造成对方损失的，应承担相应的赔偿责任。</p>
@@ -59,7 +58,6 @@ function PdfDemoContent() {
         <p className="pdf-p">8.2 甲方基于本合同取得的使用权为非独占、不可转让的使用许可。</p>
         <p className="pdf-p">8.3 本合同未提及的其他知识产权归属，按相关法律法规执行。</p>
       </PdfPage>
-
       <PdfPage pageNo={5}>
         <h2 className="pdf-h2">第九条 不可抗力</h2>
         <p className="pdf-p cite-anchor" id="a-force">不可抗力包括但不限于：地震、台风、洪水、战争、罢工等当事人不能预见、不能避免并不能克服的客观情况。</p>
@@ -72,6 +70,7 @@ function PdfDemoContent() {
   );
 }
 
+// ===== 骨架 =====
 function PdfSkeletonPage() {
   return (
     <div className="pdf-skeleton-page">
@@ -85,26 +84,33 @@ function PdfSkeletonPage() {
       {[100, 82, 100, 70, 58, 100].map((w, i) => (
         <div key={i} className="skeleton sk-line" style={{ width: w + '%' }}/>
       ))}
-      <div className="skeleton sk-space"/>
-      <div className="skeleton sk-h2"/>
-      {[100, 76, 90].map((w, i) => (
-        <div key={i} className="skeleton sk-line" style={{ width: w + '%' }}/>
-      ))}
     </div>
   );
 }
 
-export function PdfPreview({ file, onMetaChange }) {
+// ===== 主组件（forwardRef 暴露 scrollToPageAndRect） =====
+export const PdfPreview = React.forwardRef(function PdfPreview({ file, onMetaChange, scale = 1 }, ref) {
   const [status, setStatus] = React.useState('idle');
   const [error, setError] = React.useState(null);
+  const [docProxy, setDocProxy] = React.useState(null);
+  const viewerRef = React.useRef(null);
+
+  React.useImperativeHandle(ref, () => ({
+    scrollToPageAndRect: (pageIndex, rects) => {
+      viewerRef.current?.scrollToPageAndRect(pageIndex, rects);
+    },
+  }));
 
   React.useEffect(() => {
     if (file.source === 'demo') return;
     setStatus('loading');
+    setDocProxy(null);
     window.api.file.read(file.path)
-      .then(({ size, mtime }) => {
-        onMetaChange?.({ size, mtime });
-        setStatus('loaded');
+      .then(async ({ bytes, size, mtime }) => {
+        const doc = await loadPdf(bytes);
+        onMetaChange?.({ size, mtime, pageCount: doc.numPages });
+        setDocProxy(doc);
+        setStatus('ready');
       })
       .catch(err => { setStatus('error'); setError(err.message); });
   }, [file.id]);
@@ -132,10 +138,12 @@ export function PdfPreview({ file, onMetaChange }) {
     );
   }
 
-  // status === 'loaded' — PDF parser integration pending
   return (
-    <div className="preview-error">
-      <div style={{ color: 'var(--ink-3)', fontSize: 12 }}>文件已加载 · PDF 渲染器待接入</div>
-    </div>
+    <PdfRealViewer
+      ref={viewerRef}
+      doc={docProxy}
+      scale={scale}
+      onPageCountChange={(count) => onMetaChange?.({ pageCount: count })}
+    />
   );
-}
+});

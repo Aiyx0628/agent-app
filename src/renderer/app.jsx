@@ -9,6 +9,7 @@ import { Preview } from './preview';
 import { Titlebar } from './titlebar';
 import { applyTweaks, Tweaks } from './tweaks';
 import { extToKind } from './types';
+import { analyzePdf } from '../services/mock/mockPdfIssues';
 
 const DEFAULT_TWEAKS = {
   density: 'comfortable',
@@ -49,6 +50,7 @@ function App() {
   const [tweaksOpen, setTweaksOpen] = React.useState(false);
   const [tweaks, setTweaks] = React.useState(window.__TWEAKS__ || DEFAULT_TWEAKS);
   const [fileTree, setFileTree] = React.useState(FILE_TREE);
+  const [localIssues, setLocalIssues] = React.useState(null);
 
   const scrollRef = React.useRef(null);
 
@@ -73,18 +75,31 @@ function App() {
     [activeId, fileTree]
   );
 
-  // Reset active issue when switching files
-  React.useEffect(() => { setActiveIssue(null); }, [activeId]);
+  // Reset active issue when switching files; load mock issues for local PDFs
+  React.useEffect(() => {
+    setActiveIssue(null);
+    const currentFile = findFile(activeId, fileTree);
+    if (currentFile?.source === 'local' && currentFile.kind === 'pdf') {
+      setLocalIssues(analyzePdf(activeId).issues);
+    } else {
+      setLocalIssues(null);
+    }
+  }, [activeId, fileTree]);
 
   const onJumpToIssue = (it) => {
     setActiveIssue(it.id);
+    const jump = () => {
+      if (it.loc.rects && it.loc.pageIndex != null) {
+        scrollRef.current?.scrollToPageAndRect(it.loc.pageIndex, it.loc.rects);
+      } else if (it.loc.anchor) {
+        scrollRef.current?.scrollToAnchor(it.loc.anchor);
+      }
+    };
     if (it.loc.docId && it.loc.docId !== activeId) {
       setActiveId(it.loc.docId);
-      setTimeout(() => {
-        scrollRef.current?.scrollToAnchor(it.loc.anchor);
-      }, 150);
+      setTimeout(jump, 150);
     } else {
-      scrollRef.current?.scrollToAnchor(it.loc.anchor);
+      jump();
     }
   };
 
@@ -149,7 +164,7 @@ function App() {
 
         <div style={{ position: 'relative', minWidth: 0, minHeight: 0, display: 'flex' }}>
           <div className="resizer r-right" onMouseDown={onDragStart('right')}/>
-          <Chat activeIssue={activeIssue} onJumpToIssue={onJumpToIssue}/>
+          <Chat activeIssue={activeIssue} onJumpToIssue={onJumpToIssue} issues={localIssues}/>
         </div>
       </div>
 

@@ -60,6 +60,38 @@ export function extToKind(ext: string): FileKind | undefined {
   return EXT_KIND_MAP[ext.toLowerCase()];
 }
 
+// PDF 用户空间坐标（左下原点，点单位，y 向上）
+export interface PageRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface IssueLocation {
+  docId: string;
+  anchor?: string;
+  page?: number;
+  pageIndex?: number;
+  rects?: PageRect[];
+}
+
+export interface IssueItem {
+  id: string;
+  severity: 'high' | 'med' | 'low';
+  category: string;
+  loc: IssueLocation;
+  locLabel?: string;
+  quote: string;
+  body: string;
+  recommendation: string;
+}
+
+export interface DocumentAnalysisResult {
+  docId: string;
+  issues: IssueItem[];
+}
+
 declare global {
   interface Window {
     api: ElectronAPI;

@@ -2,8 +2,10 @@ import * as React from 'react';
 import { CONTRACT_ISSUES, INITIAL_CHAT } from './data';
 import { Ic } from './icons';
 
-export function Chat({ activeIssue, onJumpToIssue }) {
+export function Chat({ activeIssue, onJumpToIssue, issues: propIssues }) {
   const [tab, setTab] = React.useState('issues');
+  const issues = propIssues ?? CONTRACT_ISSUES;
+  const issueCount = issues.length;
   const [messages, setMessages] = React.useState(INITIAL_CHAT);
   const [draft, setDraft] = React.useState('');
   const [typing, setTyping] = React.useState(false);
@@ -44,14 +46,14 @@ export function Chat({ activeIssue, onJumpToIssue }) {
         <span className="dot"/>
         <span className="title">AI 合同助手</span>
         <div style={{ flex: 1 }}/>
-        <span className="stat">发现 9 项问题</span>
+        <span className="stat">发现 {issueCount} 项问题</span>
       </div>
       <div className="tabs">
         <button className={`tab ${tab === 'convo' ? 'active' : ''}`} onClick={() => setTab('convo')}>
           <Ic.chat/> 对话
         </button>
         <button className={`tab ${tab === 'issues' ? 'active' : ''}`} onClick={() => setTab('issues')}>
-          <Ic.list/> 问题清单 <span className="n">9</span>
+          <Ic.list/> 问题清单 <span className="n">{issueCount}</span>
         </button>
         <div className="spacer"/>
         <button className="tab-tool"><Ic.check className="check"/> 已完成</button>
@@ -59,7 +61,7 @@ export function Chat({ activeIssue, onJumpToIssue }) {
 
       {tab === 'issues' && (
         <div className="issue-list">
-          {CONTRACT_ISSUES.map((it) => {
+          {issues.map((it) => {
             const sevCls = it.severity === 'high' ? '' : it.severity === 'med' ? 'sev-med' : 'sev-low';
             const chipCls = it.severity === 'high' ? '' : it.severity === 'med' ? 'med' : 'low';
             const isActive = activeIssue === it.id;
@@ -112,7 +114,7 @@ export function Chat({ activeIssue, onJumpToIssue }) {
         <>
           <div className="msgs" ref={msgsRef}>
             {messages.map(m => <Msg key={m.id} m={m} onCite={(cid) => {
-              const it = CONTRACT_ISSUES.find(x => x.id === cid);
+              const it = issues.find(x => x.id === cid);
               if (it) onJumpToIssue(it);
             }}/>)}
             {typing && (
