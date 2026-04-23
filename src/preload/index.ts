@@ -17,6 +17,9 @@ contextBridge.exposeInMainWorld('api', {
     setConfig: (patch: Partial<{ baseUrl: string; apiKey: string; model: string }>): Promise<void> =>
       ipcRenderer.invoke('ai:set-config', patch),
 
+    analyze: (pageTexts: string[]): Promise<string> =>
+      ipcRenderer.invoke('ai:analyze', pageTexts),
+
     chat: (
       messages: Array<{ role: string; content: string }>,
       onChunk: (text: string) => void,

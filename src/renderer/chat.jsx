@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { CONTRACT_ISSUES, INITIAL_CHAT } from './data';
 import { Ic } from './icons';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -36,30 +35,18 @@ function AiSettings({ onClose }) {
       </div>
       <label>
         <span>Base URL</span>
-        <input
-          type="text"
-          value={cfg.baseUrl}
-          placeholder="https://api.openai.com/v1"
-          onChange={e => setCfg(c => ({ ...c, baseUrl: e.target.value }))}
-        />
+        <input type="text" value={cfg.baseUrl} placeholder="https://api.openai.com/v1"
+          onChange={e => setCfg(c => ({ ...c, baseUrl: e.target.value }))}/>
       </label>
       <label>
         <span>API Key</span>
-        <input
-          type="password"
-          value={cfg.apiKey}
-          placeholder="sk-..."
-          onChange={e => setCfg(c => ({ ...c, apiKey: e.target.value }))}
-        />
+        <input type="password" value={cfg.apiKey} placeholder="sk-..."
+          onChange={e => setCfg(c => ({ ...c, apiKey: e.target.value }))}/>
       </label>
       <label>
         <span>Model</span>
-        <input
-          type="text"
-          value={cfg.model}
-          placeholder="gpt-4o"
-          onChange={e => setCfg(c => ({ ...c, model: e.target.value }))}
-        />
+        <input type="text" value={cfg.model} placeholder="gpt-4o"
+          onChange={e => setCfg(c => ({ ...c, model: e.target.value }))}/>
       </label>
       <button className="ai-settings-save" onClick={save}>
         {saved ? '已保存 ✓' : '保存'}
@@ -68,13 +55,77 @@ function AiSettings({ onClose }) {
   );
 }
 
+// ── Analyzing placeholder ─────────────────────────────────────────────────────
+
+function AnalyzingPlaceholder() {
+  return (
+    <div className="analyzing">
+      <div className="analyzing-spinner"/>
+      <div>正在审阅合同，请稍候…</div>
+    </div>
+  );
+}
+
+// ── Issue card ────────────────────────────────────────────────────────────────
+
+function IssueCard({ it, isActive, onJump }) {
+  const sevCls = it.severity === 'high' ? '' : it.severity === 'med' ? 'sev-med' : 'sev-low';
+  const chipCls = it.severity === 'high' ? '' : it.severity === 'med' ? 'med' : 'low';
+  const sevLabel = { high: '高', med: '中', low: '低' }[it.severity] || it.severity;
+
+  return (
+    <div className={`issue-card ${sevCls} ${isActive ? 'active' : ''}`} onClick={() => onJump(it)}>
+      <div className="issue-head">
+        <Ic.alert color={
+          it.severity === 'high' ? 'var(--sev-high)' :
+          it.severity === 'med' ? 'oklch(0.6 0.12 60)' : 'var(--sev-low)'
+        }/>
+        <span className={`sev-chip ${chipCls}`}>{sevLabel}</span>
+        <span className="cat-chip">{it.category}</span>
+        <button className="loc-chip-btn" onClick={e => { e.stopPropagation(); onJump(it); }}>
+          <Ic.mapPin/> 定位
+        </button>
+      </div>
+
+      <div className="issue-section">
+        <div className="sec-label"><span className="sec-dot s-quote"/>原文</div>
+        <div className="sec-body quote">{it.quote}</div>
+      </div>
+
+      <div className="issue-section">
+        <div className="sec-label"><span className="sec-dot s-issue"/>问题点</div>
+        <div className="sec-body">{it.body}</div>
+      </div>
+
+      <div className="issue-section">
+        <div className="sec-label"><span className="sec-dot s-tip"/>建议</div>
+        <div className="sec-body tip">{it.recommendation}</div>
+      </div>
+
+      <div className="issue-actions">
+        <button className="mini-btn primary" onClick={e => { e.stopPropagation(); onJump(it); }}>
+          采纳建议
+        </button>
+        <button className="mini-btn" onClick={e => e.stopPropagation()}>忽略</button>
+      </div>
+    </div>
+  );
+}
+
 // ── Chat component ────────────────────────────────────────────────────────────
 
-export function Chat({ activeIssue, onJumpToIssue, issues: propIssues }) {
+export function Chat({
+  activeIssue,
+  onJumpToIssue,
+  issues = [],
+  analysisStatus = 'idle',
+  analysisError = '',
+  onAnalyze,
+  hasPdf = false,
+}) {
   const [tab, setTab] = React.useState('issues');
-  const issues = propIssues ?? CONTRACT_ISSUES;
   const issueCount = issues.length;
-  const [messages, setMessages] = React.useState(INITIAL_CHAT);
+  const [messages, setMessages] = React.useState([]);
   const [draft, setDraft] = React.useState('');
   const [typing, setTyping] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -85,7 +136,6 @@ export function Chat({ activeIssue, onJumpToIssue, issues: propIssues }) {
     if (msgsRef.current) msgsRef.current.scrollTop = msgsRef.current.scrollHeight;
   }, [messages, typing, tab]);
 
-  // Cancel in-flight request when unmounting
   React.useEffect(() => () => cancelRef.current?.(), []);
 
   const send = () => {
@@ -94,7 +144,6 @@ export function Chat({ activeIssue, onJumpToIssue, issues: propIssues }) {
     const userMsg = { id: 'u-' + Date.now(), role: 'user', content: [{ t: draft }] };
     const aId = 'a-' + Date.now();
     const pendingMsg = { id: aId, role: 'assistant', content: [{ t: '' }] };
-
     const apiMessages = [...toApiMessages(messages), { role: 'user', content: draft }];
 
     setMessages(m => [...m, userMsg, pendingMsg]);
@@ -105,38 +154,28 @@ export function Chat({ activeIssue, onJumpToIssue, issues: propIssues }) {
 
     cancelRef.current = window.api?.ai?.chat(
       apiMessages,
-      (chunk) => {
+      chunk => {
         textAccum.v += chunk;
         const snap = textAccum.v;
-        setMessages(m => m.map(msg =>
-          msg.id === aId ? { ...msg, content: [{ t: snap }] } : msg
-        ));
+        setMessages(m => m.map(msg => msg.id === aId ? { ...msg, content: [{ t: snap }] } : msg));
       },
-      () => {
-        setTyping(false);
-        cancelRef.current = null;
-      },
-      (err) => {
-        setMessages(m => m.map(msg =>
-          msg.id === aId ? { ...msg, content: [{ t: '⚠ ' + err }] } : msg
-        ));
+      () => { setTyping(false); cancelRef.current = null; },
+      err => {
+        setMessages(m => m.map(msg => msg.id === aId ? { ...msg, content: [{ t: '⚠ ' + err }] } : msg));
         setTyping(false);
         cancelRef.current = null;
       },
     );
 
-    // Fallback: if api not available (no main process), show placeholder
     if (!window.api?.ai) {
       setTimeout(() => {
         setMessages(m => m.map(msg =>
-          msg.id === aId ? { ...msg, content: [{ t: '（未配置 AI 服务，请在设置中填写 API Key）' }] } : msg
+          msg.id === aId ? { ...msg, content: [{ t: '（未配置 AI 服务，请点击右上角 ⚙ 填写 API Key）' }] } : msg
         ));
         setTyping(false);
       }, 600);
     }
   };
-
-  const severityLabel = (s) => ({ high: '高', med: '中', low: '低' }[s] || s);
 
   return (
     <div className="pane right">
@@ -144,7 +183,9 @@ export function Chat({ activeIssue, onJumpToIssue, issues: propIssues }) {
         <span className="dot"/>
         <span className="title">AI 合同助手</span>
         <div style={{ flex: 1 }}/>
-        <span className="stat">发现 {issueCount} 项问题</span>
+        {analysisStatus === 'done' && (
+          <span className="stat">发现 {issueCount} 项问题</span>
+        )}
         <button
           className={`icon-btn ${settingsOpen ? 'active' : ''}`}
           title="AI 设置"
@@ -162,7 +203,8 @@ export function Chat({ activeIssue, onJumpToIssue, issues: propIssues }) {
           <Ic.chat/> 对话
         </button>
         <button className={`tab ${tab === 'issues' ? 'active' : ''}`} onClick={() => setTab('issues')}>
-          <Ic.list/> 问题清单 <span className="n">{issueCount}</span>
+          <Ic.list/> 问题清单
+          {issueCount > 0 && <span className="n">{issueCount}</span>}
         </button>
         <div className="spacer"/>
         <button className="tab-tool"><Ic.check className="check"/> 已完成</button>
@@ -170,62 +212,33 @@ export function Chat({ activeIssue, onJumpToIssue, issues: propIssues }) {
 
       {tab === 'issues' && (
         <div className="issue-list">
-          {issues.map((it) => {
-            const sevCls = it.severity === 'high' ? '' : it.severity === 'med' ? 'sev-med' : 'sev-low';
-            const chipCls = it.severity === 'high' ? '' : it.severity === 'med' ? 'med' : 'low';
-            const isActive = activeIssue === it.id;
-            return (
-              <div key={it.id}
-                className={`issue-card ${sevCls} ${isActive ? 'active' : ''}`}
-                onClick={() => onJumpToIssue(it)}>
-                <div className="issue-head">
-                  <Ic.alert color={
-                    it.severity === 'high' ? 'var(--sev-high)' :
-                    it.severity === 'med' ? 'oklch(0.6 0.12 60)' : 'var(--sev-low)'
-                  }/>
-                  <span className={`sev-chip ${chipCls}`}>{severityLabel(it.severity)}</span>
-                  <span className="cat-chip">{it.category}</span>
-                  <button className="loc-chip-btn" onClick={(e) => { e.stopPropagation(); onJumpToIssue(it); }}>
-                    <Ic.mapPin/> 定位
-                  </button>
-                </div>
-
-                <div className="issue-section">
-                  <div className="sec-label"><span className="sec-dot s-quote"/>原文</div>
-                  <div className="sec-body quote" dangerouslySetInnerHTML={{ __html: hl(it.quote) }}/>
-                </div>
-
-                <div className="issue-section">
-                  <div className="sec-label"><span className="sec-dot s-issue"/>问题点</div>
-                  <div className="sec-body">{it.body}</div>
-                </div>
-
-                <div className="issue-section">
-                  <div className="sec-label"><span className="sec-dot s-tip"/>建议</div>
-                  <div className="sec-body tip">{it.recommendation}</div>
-                </div>
-
-                <div className="issue-actions">
-                  <button className="mini-btn primary" onClick={(e) => { e.stopPropagation(); onJumpToIssue(it); }}>
-                    采纳建议
-                  </button>
-                  <button className="mini-btn" onClick={(e) => e.stopPropagation()}>
-                    忽略
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+          {analysisStatus === 'idle' && (
+            <div className="analysis-idle">
+              {hasPdf
+                ? <button className="analyze-btn" onClick={onAnalyze}>🔍 分析合同</button>
+                : <div className="analysis-hint">请通过左侧 + 按钮添加 PDF 合同</div>}
+            </div>
+          )}
+          {analysisStatus === 'analyzing' && <AnalyzingPlaceholder/>}
+          {analysisStatus === 'error' && (
+            <div className="analysis-error">
+              <div>{analysisError}</div>
+              <button className="mini-btn" onClick={onAnalyze}>重试</button>
+            </div>
+          )}
+          {analysisStatus === 'done' && issues.map(it => (
+            <IssueCard key={it.id} it={it} isActive={activeIssue === it.id} onJump={onJumpToIssue}/>
+          ))}
         </div>
       )}
 
       {tab === 'convo' && (
         <>
           <div className="msgs" ref={msgsRef}>
-            {messages.map(m => <Msg key={m.id} m={m} onCite={(cid) => {
-              const it = issues.find(x => x.id === cid);
-              if (it) onJumpToIssue(it);
-            }}/>)}
+            {messages.length === 0 && (
+              <div className="convo-hint">在下方输入框向 AI 询问合同相关问题</div>
+            )}
+            {messages.map(m => <Msg key={m.id} m={m}/>)}
             {typing && (
               <div className="msg">
                 <div className="av">AI</div>
@@ -241,13 +254,10 @@ export function Chat({ activeIssue, onJumpToIssue, issues: propIssues }) {
                 placeholder="有疑问？在此追问…"
                 value={draft}
                 onChange={e => setDraft(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
-                }}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
                 rows={1}
               />
               <div className="bar">
-                <span className="tag"><Ic.paperclip/> 双方合同《福朗电子》.pdf</span>
                 <button className={`send ${!draft.trim() || typing ? 'disabled' : ''}`} onClick={send}>
                   <Ic.send/>
                 </button>
@@ -262,38 +272,16 @@ export function Chat({ activeIssue, onJumpToIssue, issues: propIssues }) {
 
 // ── Message bubble ────────────────────────────────────────────────────────────
 
-function Msg({ m, onCite }) {
+function Msg({ m }) {
   const isUser = m.role === 'user';
   return (
     <div className={`msg ${isUser ? 'user' : ''}`}>
       <div className="av">{isUser ? '我' : 'AI'}</div>
       <div className="bubble">
-        {m.content.map((c, i) => {
-          if (c.cite) {
-            return (
-              <span key={i} className="cite" onClick={() => onCite(c.cite)}>
-                <Ic.mapPin/> {c.label}
-              </span>
-            );
-          }
-          return <span key={i} style={{ whiteSpace: 'pre-wrap' }}>{c.t}</span>;
-        })}
+        {m.content.map((c, i) => (
+          <span key={i} style={{ whiteSpace: 'pre-wrap' }}>{c.t ?? c.label ?? ''}</span>
+        ))}
       </div>
     </div>
   );
-}
-
-function hl(text) {
-  return text
-    .replace(/知识产权/g, '<mark>知识产权</mark>')
-    .replace(/1 个月/g, '<mark>1 个月</mark>')
-    .replace(/15 天内/g, '<mark>15 天内</mark>')
-    .replace(/年\s+月\s+日/g, '<mark>年 月 日</mark>')
-    .replace(/签订时间：/g, '签订时间：<mark>年月日</mark>　')
-    .replace(/¥790,000\.00/g, '<mark>¥790,000.00</mark>')
-    .replace(/任何争议/g, '<mark>任何争议</mark>')
-    .replace(/违约责任|违约金/g, '<mark>$&</mark>')
-    .replace(/测试报告/g, '<mark>测试报告</mark>')
-    .replace(/不可抗力/g, '<mark>不可抗力</mark>')
-    .replace(/解除本合同/g, '<mark>解除本合同</mark>');
 }

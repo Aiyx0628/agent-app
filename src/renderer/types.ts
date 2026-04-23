@@ -54,6 +54,7 @@ export interface ElectronAPI {
   ai: {
     getConfig(): Promise<AiConfig>;
     setConfig(patch: Partial<AiConfig>): Promise<void>;
+    analyze(pageTexts: string[]): Promise<string>;
     chat(
       messages: Array<{ role: string; content: string }>,
       onChunk: (text: string) => void,

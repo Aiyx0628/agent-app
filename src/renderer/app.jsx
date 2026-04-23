@@ -9,7 +9,7 @@ import { Preview } from './preview';
 import { Titlebar } from './titlebar';
 import { applyTweaks, Tweaks } from './tweaks';
 import { extToKind } from './types';
-import { analyzePdf } from '../services/mock/mockPdfIssues';
+import { resolveQuote } from '../pdf/locator';
 
 const DEFAULT_TWEAKS = {
   density: 'comfortable',
@@ -43,21 +43,24 @@ function insertNodes(tree, folderId, newNodes) {
 }
 
 function App() {
-  const [activeId, setActiveId] = React.useState('doc-contract-main');
+  const [activeId, setActiveId] = React.useState(null);
   const [activeIssue, setActiveIssue] = React.useState(null);
   const [leftW, setLeftW] = React.useState(260);
   const [rightW, setRightW] = React.useState(410);
   const [tweaksOpen, setTweaksOpen] = React.useState(false);
   const [tweaks, setTweaks] = React.useState(window.__TWEAKS__ || DEFAULT_TWEAKS);
   const [fileTree, setFileTree] = React.useState(FILE_TREE);
-  const [localIssues, setLocalIssues] = React.useState(null);
+
+  // Analysis state
+  const [parsedDoc, setParsedDoc] = React.useState(null);
+  const [issues, setIssues] = React.useState([]);
+  const [analysisStatus, setAnalysisStatus] = React.useState('idle');
+  const [analysisError, setAnalysisError] = React.useState('');
 
   const scrollRef = React.useRef(null);
 
-  // Apply tweaks
   React.useEffect(() => { applyTweaks(tweaks); }, [tweaks]);
 
-  // Edit-mode wiring
   React.useEffect(() => {
     const onMsg = (e) => {
       if (e.data?.type === '__activate_edit_mode') setTweaksOpen(true);
@@ -69,33 +72,62 @@ function App() {
   }, []);
 
   const file = React.useMemo(
-    () => findFile(activeId, fileTree) || {
-      id: activeId, type: 'file', kind: 'pdf', source: 'demo', name: 'Unknown', pages: 1,
-    },
+    () => activeId ? (findFile(activeId, fileTree) ?? null) : null,
     [activeId, fileTree]
   );
 
-  // Reset active issue when switching files; load mock issues for local PDFs
+  // Reset analysis when switching files
   React.useEffect(() => {
     setActiveIssue(null);
-    const currentFile = findFile(activeId, fileTree);
-    if (currentFile?.source === 'local' && currentFile.kind === 'pdf') {
-      setLocalIssues(analyzePdf(activeId).issues);
-    } else {
-      setLocalIssues(null);
+    setParsedDoc(null);
+    setIssues([]);
+    setAnalysisStatus('idle');
+    setAnalysisError('');
+  }, [activeId]);
+
+  const triggerAnalysis = React.useCallback(async () => {
+    if (!parsedDoc || analysisStatus === 'analyzing') return;
+    setAnalysisStatus('analyzing');
+    setIssues([]);
+    try {
+      const pageTexts = parsedDoc.pages.map(p => p.fullText);
+      const json = await window.api.ai.analyze(pageTexts);
+      // Strip potential markdown code fences
+      const cleaned = json.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim();
+      const { issues: raw } = JSON.parse(cleaned);
+      const resolved = (raw ?? []).map((r, idx) => {
+        const spans = resolveQuote(r.quote ?? '', r.quote_page ?? 1, parsedDoc);
+        const span = spans[0];
+        return {
+          id: `ai-${idx}`,
+          severity: r.severity ?? 'med',
+          category: r.category ?? '其他',
+          quote: r.quote ?? '',
+          body: r.body ?? '',
+          recommendation: r.recommendation ?? '',
+          loc: span
+            ? { docId: parsedDoc.docId, pageIndex: span.pageIndex, rects: span.rects }
+            : { docId: parsedDoc.docId },
+        };
+      });
+      setIssues(resolved);
+      setAnalysisStatus('done');
+    } catch (e) {
+      setAnalysisError(e.message ?? String(e));
+      setAnalysisStatus('error');
     }
-  }, [activeId, fileTree]);
+  }, [parsedDoc, analysisStatus]);
 
   const onJumpToIssue = (it) => {
     setActiveIssue(it.id);
     const jump = () => {
-      if (it.loc.rects && it.loc.pageIndex != null) {
+      if (it.loc?.rects?.length && it.loc.pageIndex != null) {
         scrollRef.current?.scrollToPageAndRect(it.loc.pageIndex, it.loc.rects);
-      } else if (it.loc.anchor) {
+      } else if (it.loc?.anchor) {
         scrollRef.current?.scrollToAnchor(it.loc.anchor);
       }
     };
-    if (it.loc.docId && it.loc.docId !== activeId) {
+    if (it.loc?.docId && it.loc.docId !== activeId) {
       setActiveId(it.loc.docId);
       setTimeout(jump, 150);
     } else {
@@ -126,7 +158,6 @@ function App() {
     setActiveId(newNodes[0].id);
   }, []);
 
-  // resizers
   const dragRef = React.useRef(null);
   const onDragStart = (side) => (e) => {
     e.preventDefault();
@@ -150,6 +181,8 @@ function App() {
     window.addEventListener('mouseup', up);
   };
 
+  const hasPdf = file?.kind === 'pdf' && file?.source === 'local' && !!parsedDoc;
+
   return (
     <>
       <Titlebar/>
@@ -160,11 +193,24 @@ function App() {
           <div className="resizer r-left" onMouseDown={onDragStart('left')}/>
         </div>
 
-        <Preview file={file} scrollToRef={scrollRef}/>
+        {file
+          ? <Preview file={file} scrollToRef={scrollRef} onParsed={setParsedDoc}/>
+          : <div className="pane center" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-3)', fontSize: 14 }}>
+              请通过左侧 + 按钮添加文件
+            </div>
+        }
 
         <div style={{ position: 'relative', minWidth: 0, minHeight: 0, display: 'flex' }}>
           <div className="resizer r-right" onMouseDown={onDragStart('right')}/>
-          <Chat activeIssue={activeIssue} onJumpToIssue={onJumpToIssue} issues={localIssues}/>
+          <Chat
+            activeIssue={activeIssue}
+            onJumpToIssue={onJumpToIssue}
+            issues={issues}
+            analysisStatus={analysisStatus}
+            analysisError={analysisError}
+            onAnalyze={triggerAnalysis}
+            hasPdf={hasPdf}
+          />
         </div>
       </div>
 
