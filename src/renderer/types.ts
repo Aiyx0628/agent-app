@@ -43,6 +43,7 @@ export interface AiConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
+  proxyUrl: string;
 }
 
 export interface ElectronAPI {

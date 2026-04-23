@@ -48,6 +48,11 @@ function AiSettings({ onClose }) {
         <input type="text" value={cfg.model} placeholder="gpt-4o"
           onChange={e => setCfg(c => ({ ...c, model: e.target.value }))}/>
       </label>
+      <label>
+        <span>Proxy URL（可选）</span>
+        <input type="text" value={cfg.proxyUrl ?? ''} placeholder="http://127.0.0.1:7890"
+          onChange={e => setCfg(c => ({ ...c, proxyUrl: e.target.value }))}/>
+      </label>
       <button className="ai-settings-save" onClick={save}>
         {saved ? '已保存 ✓' : '保存'}
       </button>

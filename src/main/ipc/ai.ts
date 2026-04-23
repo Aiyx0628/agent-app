@@ -2,17 +2,20 @@ import { ipcMain, app } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import OpenAI from 'openai';
+import { ProxyAgent } from 'undici';
 
 export interface AiConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
+  proxyUrl: string;   // e.g. "http://127.0.0.1:7890"  empty = no proxy
 }
 
 const DEFAULT_CONFIG: AiConfig = {
   baseUrl: 'https://api.openai.com/v1',
   apiKey: '',
   model: 'gpt-4o',
+  proxyUrl: '',
 };
 
 const ANALYZE_SYSTEM_PROMPT = `你是一名专业的中国合同法律顾问，专注于商业合同风险审查。
@@ -50,7 +53,10 @@ function saveConfig(config: AiConfig): void {
 }
 
 function makeClient(config: AiConfig): OpenAI {
-  return new OpenAI({ baseURL: config.baseUrl, apiKey: config.apiKey });
+  const fetchOptions = config.proxyUrl
+    ? { dispatcher: new ProxyAgent(config.proxyUrl) as any }
+    : undefined;
+  return new OpenAI({ baseURL: config.baseUrl, apiKey: config.apiKey, fetchOptions });
 }
 
 export function registerAiIpcHandlers(): void {
