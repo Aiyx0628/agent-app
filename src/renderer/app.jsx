@@ -73,8 +73,8 @@ function firstFileNode(nodes) {
 function App() {
   const [activeId, setActiveId] = React.useState(null);
   const [activeIssue, setActiveIssue] = React.useState(null);
-  const [leftW, setLeftW] = React.useState(260);
-  const [rightW, setRightW] = React.useState(410);
+  const [leftW, setLeftW] = React.useState(300);
+  const [rightW, setRightW] = React.useState(300);
   const [tweaksOpen, setTweaksOpen] = React.useState(false);
   const [tweaks, setTweaks] = React.useState(window.__TWEAKS__ || DEFAULT_TWEAKS);
   const [fileTree, setFileTree] = React.useState(FILE_TREE);

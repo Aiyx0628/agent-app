@@ -161,7 +161,7 @@ input { font: inherit; }
 .main {
   flex: 1;
   display: grid;
-  grid-template-columns: var(--left-w, 260px) 1fr var(--right-w, 400px);
+  grid-template-columns: var(--left-w, 300px) 1fr var(--right-w, 300px);
   min-height: 0;
   background: var(--bg);
 }
