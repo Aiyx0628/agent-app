@@ -56,6 +56,59 @@ function saveConfig(config: AiConfig): void {
 
 let currentProxyUrl = '';
 
+function describeError(e: any): string {
+  const parts = [
+    e?.message ?? String(e),
+    e?.status ? `status=${e.status}` : '',
+    e?.code ? `code=${e.code}` : '',
+    e?.type ? `type=${e.type}` : '',
+  ].filter(Boolean);
+
+  const upstream = e?.error;
+  if (typeof upstream === 'string') {
+    parts.push(`upstream=${upstream}`);
+  } else if (upstream?.message) {
+    parts.push(`upstream=${upstream.message}`);
+  } else if (upstream) {
+    try {
+      parts.push(`upstream=${JSON.stringify(upstream)}`);
+    } catch {
+      parts.push('upstream=[unserializable]');
+    }
+  }
+
+  const cause = e?.cause;
+  if (cause?.message) {
+    parts.push(`cause=${cause.message}`);
+  }
+  if (cause?.cause?.message) {
+    parts.push(`rootCause=${cause.cause.message}`);
+  }
+
+  return parts.join(' | ');
+}
+
+function logAiError(scope: string, e: any): void {
+  console.error(`[${scope}] error:`, describeError(e));
+  if (e?.headers) {
+    const usefulHeaders = {
+      'x-request-id': e.headers['x-request-id'],
+      'nvidia-request-id': e.headers['nvidia-request-id'],
+      'cf-ray': e.headers['cf-ray'],
+    };
+    console.error(`[${scope}] response headers:`, usefulHeaders);
+  }
+}
+
+function shouldRetryWithoutResponseFormat(e: any): boolean {
+  return (
+    e?.status === 400 ||
+    e?.status === 422 ||
+    e?.code === 'invalid_request_error' ||
+    e?.type === 'invalid_request_error'
+  );
+}
+
 function applyGlobalProxy(proxyUrl: string): void {
   if (proxyUrl === currentProxyUrl) return;
   currentProxyUrl = proxyUrl;
@@ -106,8 +159,8 @@ export function registerAiIpcHandlers(): void {
       event.sender.send('ai:done', reqId);
       console.log('[ai:chat] done');
     } catch (e: any) {
-      console.error('[ai:chat] error:', e?.message ?? e);
-      event.sender.send('ai:error', reqId, e?.message ?? String(e));
+      logAiError('ai:chat', e);
+      event.sender.send('ai:error', reqId, describeError(e));
     }
   });
 
@@ -120,6 +173,7 @@ export function registerAiIpcHandlers(): void {
     const contractText = pageTexts
       .map((t, i) => `[第${i + 1}页]\n${t}`)
       .join('\n\n');
+    console.log('[ai:analyze] payload chars=%d', contractText.length);
 
     const messages: OpenAI.ChatCompletionMessageParam[] = [
       { role: 'system', content: ANALYZE_SYSTEM_PROMPT },
@@ -140,19 +194,25 @@ export function registerAiIpcHandlers(): void {
       console.log('[ai:analyze] done, response length=%d', result.length);
       return result;
     } catch (e: any) {
-      console.warn('[ai:analyze] first attempt error status=%s, retrying without response_format', e?.status);
-      if (e?.status === 400 || e?.code === 'invalid_request_error') {
-        const resp = await client.chat.completions.create({
-          model: config.model,
-          messages,
-          temperature: 0.2,
-        });
-        const result = resp.choices[0]?.message?.content ?? '{"issues":[]}';
-        console.log('[ai:analyze] fallback done, response length=%d', result.length);
-        return result;
+      console.warn('[ai:analyze] first attempt failed:', describeError(e));
+      if (shouldRetryWithoutResponseFormat(e)) {
+        console.warn('[ai:analyze] retrying without response_format');
+        try {
+          const resp = await client.chat.completions.create({
+            model: config.model,
+            messages,
+            temperature: 0.2,
+          });
+          const result = resp.choices[0]?.message?.content ?? '{"issues":[]}';
+          console.log('[ai:analyze] fallback done, response length=%d', result.length);
+          return result;
+        } catch (fallbackError: any) {
+          logAiError('ai:analyze:fallback', fallbackError);
+          throw new Error(describeError(fallbackError));
+        }
       }
-      console.error('[ai:analyze] error:', e?.message ?? e);
-      throw e;
+      logAiError('ai:analyze', e);
+      throw new Error(describeError(e));
     }
   });
 }

@@ -4,7 +4,8 @@ import { Ic } from './icons';
 export function Titlebar({ onReview, onExport }) {
   return (
     <div className="titlebar">
-<button className="back" title="返回"><Ic.back/></button>
+      <div className="mac-window-spacer" aria-hidden="true"/>
+      <button className="back" title="返回"><Ic.back/></button>
       <div className="crumbs">
         <span>合同审核</span>
         <span className="sep">/</span>
