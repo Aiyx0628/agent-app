@@ -86,6 +86,7 @@ function IssueCard({ it, isActive, onJump }) {
   return (
     <div className={`issue-card ${sevCls} ${isActive ? 'active' : ''}`} onClick={() => onJump(it)}>
       <div className="issue-head">
+        <span className="issue-index">{it.number}</span>
         <Ic.alert color={
           it.severity === 'high' ? 'var(--sev-high)' :
           it.severity === 'med' ? 'oklch(0.6 0.12 60)' : 'var(--sev-low)'
@@ -236,8 +237,8 @@ export function Chat({
               <button className="mini-btn" onClick={onAnalyze}>重试</button>
             </div>
           )}
-          {analysisStatus === 'done' && issues.map(it => (
-            <IssueCard key={it.id} it={it} isActive={activeIssue === it.id} onJump={onJumpToIssue}/>
+          {analysisStatus === 'done' && issues.map((it, idx) => (
+            <IssueCard key={it.id} it={{ ...it, number: it.number ?? idx + 1 }} isActive={activeIssue === it.id} onJump={onJumpToIssue}/>
           ))}
         </div>
       )}

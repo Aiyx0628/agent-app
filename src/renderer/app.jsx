@@ -127,8 +127,12 @@ function App() {
       const resolved = (raw ?? []).map((r, idx) => {
         const spans = resolveQuote(r.quote ?? '', r.quote_page ?? 1, parsedDoc);
         const span = spans[0];
+        const firstRect = span?.rects?.[0];
         return {
           id: `ai-${idx}`,
+          sourceIndex: idx,
+          sortPageIndex: span?.pageIndex ?? Number.MAX_SAFE_INTEGER,
+          sortTop: firstRect ? -firstRect.y : Number.MAX_SAFE_INTEGER,
           severity: r.severity ?? 'med',
           category: r.category ?? '其他',
           quote: r.quote ?? '',
@@ -138,8 +142,12 @@ function App() {
             ? { docId: parsedDoc.docId, pageIndex: span.pageIndex, rects: span.rects }
             : { docId: parsedDoc.docId },
         };
-      });
-      setIssues(resolved);
+      }).sort((a, b) => (
+        a.sortPageIndex - b.sortPageIndex ||
+        a.sortTop - b.sortTop ||
+        a.sourceIndex - b.sourceIndex
+      ));
+      setIssues(resolved.map((item, idx) => ({ ...item, number: idx + 1 })));
       setAnalysisStatus('done');
     } catch (e) {
       setAnalysisError(e.message ?? String(e));
