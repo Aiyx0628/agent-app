@@ -50,6 +50,8 @@ export interface AiConfig {
 export interface ElectronAPI {
   file: {
     openDialog(opts?: { title?: string; extensions?: string[] }): Promise<{ canceled: boolean; paths: string[] }>;
+    getDroppedPaths(files: File[]): string[];
+    scanPaths(paths: string[]): Promise<DirEntry[]>;
     read(path: string): Promise<{ bytes: Uint8Array; mtime: number; size: number }>;
     stat(path: string): Promise<{ size: number; mtime: number; exists: boolean }>;
   };

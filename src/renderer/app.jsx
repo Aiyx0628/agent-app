@@ -8,7 +8,6 @@ import { FileTree } from './filetree';
 import { Preview } from './preview';
 import { Titlebar } from './titlebar';
 import { applyTweaks, Tweaks } from './tweaks';
-import { extToKind } from './types';
 import { resolveQuote } from '../pdf/locator';
 
 const DEFAULT_TWEAKS = {
@@ -42,6 +41,35 @@ function insertNodes(tree, folderId, newNodes) {
   });
 }
 
+function entryToNode(entry) {
+  const id = `local-${entry.path || entry.name}-${Math.random().toString(36).slice(2)}`;
+  if (entry.type === 'folder') {
+    return {
+      id,
+      type: 'folder',
+      name: entry.name,
+      children: (entry.children || []).map(entryToNode),
+    };
+  }
+  return {
+    id,
+    type: 'file',
+    kind: entry.kind,
+    name: entry.name,
+    source: 'local',
+    path: entry.path,
+  };
+}
+
+function firstFileNode(nodes) {
+  for (const node of nodes) {
+    if (node.type === 'file') return node;
+    const child = firstFileNode(node.children || []);
+    if (child) return child;
+  }
+  return null;
+}
+
 function App() {
   const [activeId, setActiveId] = React.useState(null);
   const [activeIssue, setActiveIssue] = React.useState(null);
@@ -50,6 +78,7 @@ function App() {
   const [tweaksOpen, setTweaksOpen] = React.useState(false);
   const [tweaks, setTweaks] = React.useState(window.__TWEAKS__ || DEFAULT_TWEAKS);
   const [fileTree, setFileTree] = React.useState(FILE_TREE);
+  const [leftDropActive, setLeftDropActive] = React.useState(false);
 
   // Analysis state
   const [parsedDoc, setParsedDoc] = React.useState(null);
@@ -142,20 +171,44 @@ function App() {
       extensions: ['pdf', 'docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt', 'png', 'jpg', 'jpeg', 'gif', 'webp'],
     });
     if (result.canceled || result.paths.length === 0) return;
-    const newNodes = result.paths.map(p => {
-      const name = p.split('/').pop() ?? p;
-      const ext = '.' + (name.split('.').pop() ?? '');
-      return {
-        id: 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2),
-        type: 'file',
-        kind: extToKind(ext) ?? 'pdf',
-        name,
-        source: 'local',
-        path: p,
-      };
-    });
+    const entries = await window.api.file.scanPaths(result.paths);
+    const newNodes = entries.map(entryToNode);
+    if (newNodes.length === 0) return;
     setFileTree(prev => insertNodes(prev, 'root', newNodes));
-    setActiveId(newNodes[0].id);
+    const first = firstFileNode(newNodes);
+    if (first) setActiveId(first.id);
+  }, []);
+
+  const handleDropFiles = React.useCallback(async (event) => {
+    event.preventDefault();
+    setLeftDropActive(false);
+    if (!window.api?.file) return;
+
+    const droppedFiles = Array.from(event.dataTransfer?.files || []);
+    if (droppedFiles.length === 0) return;
+
+    const paths = window.api.file.getDroppedPaths(droppedFiles);
+    if (paths.length === 0) return;
+
+    const entries = await window.api.file.scanPaths(paths);
+    const newNodes = entries.map(entryToNode);
+    if (newNodes.length === 0) return;
+
+    setFileTree(prev => insertNodes(prev, 'root', newNodes));
+    const first = firstFileNode(newNodes);
+    if (first) setActiveId(first.id);
+  }, []);
+
+  const handleLeftDragOver = React.useCallback((event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    setLeftDropActive(true);
+  }, []);
+
+  const handleLeftDragLeave = React.useCallback((event) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      setLeftDropActive(false);
+    }
   }, []);
 
   const dragRef = React.useRef(null);
@@ -187,7 +240,13 @@ function App() {
     <>
       <Titlebar documentName={file?.name}/>
       <div className="main" style={{ '--left-w': leftW + 'px', '--right-w': rightW + 'px' }}>
-        <div style={{ position: 'relative', minWidth: 0, minHeight: 0, display: 'flex' }}>
+        <div
+          className={`left-drop-zone ${leftDropActive ? 'drag-active' : ''}`}
+          onDragOver={handleLeftDragOver}
+          onDragLeave={handleLeftDragLeave}
+          onDrop={handleDropFiles}
+          style={{ position: 'relative', minWidth: 0, minHeight: 0, display: 'flex' }}
+        >
           <FileTree activeId={activeId} onSelect={setActiveId}
             tree={fileTree} onAddFile={handleAddFile}/>
           <div className="resizer r-left" onMouseDown={onDragStart('left')}/>

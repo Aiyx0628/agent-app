@@ -1,9 +1,13 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 contextBridge.exposeInMainWorld('api', {
   file: {
     openDialog: (opts?: { title?: string; extensions?: string[] }) =>
       ipcRenderer.invoke('file:open-dialog', opts),
+    getDroppedPaths: (files: File[]): string[] =>
+      files.map(file => webUtils.getPathForFile(file)).filter(Boolean),
+    scanPaths: (paths: string[]) =>
+      ipcRenderer.invoke('file:scan-paths', paths),
     read: (path: string) =>
       ipcRenderer.invoke('file:read', { path }),
     stat: (path: string) =>

@@ -3,7 +3,7 @@ import { FileKindIcon, Ic } from './icons';
 
 function TreeNode({ node, depth, expanded, onToggle, activeId, onSelect }) {
   const isFolder = node.type === 'folder';
-  const isOpen = !!expanded[node.id];
+  const isOpen = expanded[node.id] ?? node.id.startsWith('local-');
   const isActive = activeId === node.id;
 
   return (
