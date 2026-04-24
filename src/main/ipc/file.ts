@@ -1,6 +1,9 @@
 import { dialog, ipcMain } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { fetch as undiciFetch, FormData as UndiciFormData } from 'undici';
+
+const PARSE_SERVICE_URL = 'http://121.40.89.172:8893/file_parse';
 
 const EXT_KIND_MAP: Record<string, string> = {
   '.pdf': 'pdf',
@@ -90,5 +93,29 @@ export function registerFileIpcHandlers(): void {
       paths.map(entryPath => scanPath(entryPath).catch(() => null)),
     );
     return scanned.filter(Boolean);
+  });
+
+  ipcMain.handle('file:parse-remote', async (_, filePath: string): Promise<{ markdown: string }> => {
+    const [bytes, name] = await Promise.all([fs.readFile(filePath), Promise.resolve(path.basename(filePath))]);
+    const formData = new UndiciFormData();
+    formData.append('files', new Blob([bytes]), name);
+    formData.append('format', 'markdown');
+    formData.append('backend', 'pipeline');
+    formData.append('return_images', 'false');
+
+    const resp = await undiciFetch(PARSE_SERVICE_URL, {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      body: formData,
+    });
+    if (!resp.ok) throw new Error(`文档解析服务错误: HTTP ${resp.status}`);
+
+    const result = await resp.json() as Record<string, any>;
+    if (result.results && typeof result.results === 'object') {
+      for (const fileData of Object.values(result.results) as any[]) {
+        if (fileData?.md_content) return { markdown: fileData.md_content as string };
+      }
+    }
+    throw new Error('解析服务未返回有效内容');
   });
 }

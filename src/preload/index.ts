@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke('file:read', { path }),
     stat: (path: string) =>
       ipcRenderer.invoke('file:stat', { path }),
+    parseRemote: (filePath: string): Promise<{ markdown: string }> =>
+      ipcRenderer.invoke('file:parse-remote', filePath),
   },
 
   ai: {
@@ -21,8 +23,8 @@ contextBridge.exposeInMainWorld('api', {
     setConfig: (patch: Partial<{ baseUrl: string; apiKey: string; model: string }>): Promise<void> =>
       ipcRenderer.invoke('ai:set-config', patch),
 
-    analyze: (pageTexts: string[]): Promise<string> =>
-      ipcRenderer.invoke('ai:analyze', pageTexts),
+    analyze: (markdown: string): Promise<string> =>
+      ipcRenderer.invoke('ai:analyze', markdown),
 
     chat: (
       messages: Array<{ role: string; content: string }>,

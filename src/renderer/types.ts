@@ -54,11 +54,12 @@ export interface ElectronAPI {
     scanPaths(paths: string[]): Promise<DirEntry[]>;
     read(path: string): Promise<{ bytes: Uint8Array; mtime: number; size: number }>;
     stat(path: string): Promise<{ size: number; mtime: number; exists: boolean }>;
+    parseRemote(path: string): Promise<{ markdown: string }>;
   };
   ai: {
     getConfig(): Promise<AiConfig>;
     setConfig(patch: Partial<AiConfig>): Promise<void>;
-    analyze(pageTexts: string[]): Promise<string>;
+    analyze(markdown: string): Promise<string>;
     chat(
       messages: Array<{ role: string; content: string }>,
       onChunk: (text: string) => void,

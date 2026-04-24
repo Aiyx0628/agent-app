@@ -82,6 +82,7 @@ function App() {
 
   // Analysis state
   const [parsedDoc, setParsedDoc] = React.useState(null);
+  const [remoteParsed, setRemoteParsed] = React.useState(null);
   const [issues, setIssues] = React.useState([]);
   const [analysisStatus, setAnalysisStatus] = React.useState('idle');
   const [analysisError, setAnalysisError] = React.useState('');
@@ -109,23 +110,32 @@ function App() {
   React.useEffect(() => {
     setActiveIssue(null);
     setParsedDoc(null);
+    setRemoteParsed(null);
     setIssues([]);
     setAnalysisStatus('idle');
     setAnalysisError('');
   }, [activeId]);
 
   const triggerAnalysis = React.useCallback(async () => {
-    if (!parsedDoc || analysisStatus === 'analyzing') return;
+    if (!file?.path || analysisStatus === 'analyzing') return;
     setAnalysisStatus('analyzing');
     setIssues([]);
     try {
-      const pageTexts = parsedDoc.pages.map(p => p.fullText);
-      const json = await window.api.ai.analyze(pageTexts);
+      // Step 1: remote parse if not already cached
+      let md = remoteParsed?.markdown;
+      if (!md) {
+        const result = await window.api.file.parseRemote(file.path);
+        setRemoteParsed(result);
+        md = result.markdown;
+      }
+      // Step 2: AI analysis on the Markdown text
+      const json = await window.api.ai.analyze(md);
       // Strip potential markdown code fences
       const cleaned = json.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim();
       const { issues: raw } = JSON.parse(cleaned);
       const resolved = (raw ?? []).map((r, idx) => {
-        const spans = resolveQuote(r.quote ?? '', r.quote_page ?? 1, parsedDoc);
+        // For PDF: attempt coordinate-based highlight via pdfjs-parsed text (best-effort)
+        const spans = parsedDoc ? resolveQuote(r.quote ?? '', r.quote_page ?? 1, parsedDoc) : [];
         const span = spans[0];
         const firstRect = span?.rects?.[0];
         return {
@@ -139,8 +149,8 @@ function App() {
           body: r.body ?? '',
           recommendation: r.recommendation ?? '',
           loc: span
-            ? { docId: parsedDoc.docId, pageIndex: span.pageIndex, rects: span.rects }
-            : { docId: parsedDoc.docId },
+            ? { docId: file.id, pageIndex: span.pageIndex, rects: span.rects }
+            : { docId: file.id },
         };
       }).sort((a, b) => (
         a.sortPageIndex - b.sortPageIndex ||
@@ -153,7 +163,7 @@ function App() {
       setAnalysisError(e.message ?? String(e));
       setAnalysisStatus('error');
     }
-  }, [parsedDoc, analysisStatus]);
+  }, [file, parsedDoc, remoteParsed, analysisStatus]);
 
   const onJumpToIssue = (it) => {
     setActiveIssue(it.id);
@@ -242,7 +252,7 @@ function App() {
     window.addEventListener('mouseup', up);
   };
 
-  const hasPdf = file?.kind === 'pdf' && file?.source === 'local' && !!parsedDoc;
+  const hasPdf = file?.source === 'local' && (file?.kind === 'pdf' || file?.kind === 'word') && !!file?.path;
 
   return (
     <>
