@@ -2,20 +2,13 @@ import * as React from "react";
 import { Ic } from "./icons";
 
 export function Titlebar({ documentName, onReview, onExport }) {
+  const title = documentName || "合同审核";
+
   return (
     <div className="titlebar">
       <div className="mac-window-spacer" aria-hidden="true" />
-      <button className="back" title="返回">
-        <Ic.back />
-      </button>
-      <div className="crumbs">
-        <span>合同审核</span>
-        {documentName && (
-          <>
-            <span className="sep">/</span>
-            <span className="doc">{documentName}</span>
-          </>
-        )}
+      <div className="titlebar-title" title={title}>
+        {title}
       </div>
       <div className="spacer" />
       <div className="actions">

@@ -94,38 +94,24 @@ input { font: inherit; }
   pointer-events: none;
 }
 
-.titlebar .back {
-  -webkit-app-region: no-drag;
-  width: 28px; height: var(--titlebar-control-height); border-radius: 6px;
-  display: inline-flex; align-items: center; justify-content: center;
-  color: var(--ink-2);
-  flex: 0 0 auto;
-}
-.titlebar .back:hover { background: var(--bg-muted); color: var(--ink); }
-
-.titlebar .crumbs {
-  display: flex; align-items: center; gap: 8px;
-  min-width: 0;
+.titlebar .titlebar-title {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: min(52vw, calc(100% - var(--mac-controls-width) - 260px));
   height: var(--titlebar-control-height);
-  overflow: hidden;
-  font-size: 13px; font-weight: 600;
-  line-height: 20px;
-  color: var(--ink);
-  white-space: nowrap;
-  flex: 0 1 auto;
-}
-.titlebar .crumbs span {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  height: 100%;
-}
-.titlebar .crumbs .sep { color: var(--ink-4); font-weight: 400; }
-.titlebar .crumbs .doc {
-  color: var(--ink-3);
-  font-weight: 500;
-  min-width: 0;
+  justify-content: center;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  pointer-events: none;
 }
 
 .titlebar .spacer { flex: 1; }
