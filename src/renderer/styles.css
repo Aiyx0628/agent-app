@@ -904,6 +904,7 @@ input { font: inherit; }
   cursor: pointer;
   transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
   position: relative;
+  flex-shrink: 0;
 }
 .issue-card:hover {
   border-color: var(--line-strong);
@@ -978,6 +979,9 @@ input { font: inherit; }
 /* Three-section layout: 原文 / 问题点 / 建议 */
 .issue-section {
   padding: 8px 12px 0;
+}
+.issue-section:last-of-type {
+  padding-bottom: 4px;
 }
 .sec-label {
   display: inline-flex; align-items: center; gap: 5px;

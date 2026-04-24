@@ -14,7 +14,7 @@ function toApiMessages(msgs) {
 // ── AI Settings panel ─────────────────────────────────────────────────────────
 
 function AiSettings({ onClose }) {
-  const [cfg, setCfg] = React.useState({ baseUrl: '', apiKey: '', model: '' });
+  const [cfg, setCfg] = React.useState({ baseUrl: '', apiKey: '', model: '', proxyUrl: '', timeout: 60000 });
   const [saved, setSaved] = React.useState(false);
 
   React.useEffect(() => {
@@ -52,6 +52,11 @@ function AiSettings({ onClose }) {
         <span>Proxy URL（可选）</span>
         <input type="text" value={cfg.proxyUrl ?? ''} placeholder="http://127.0.0.1:7890"
           onChange={e => setCfg(c => ({ ...c, proxyUrl: e.target.value }))}/>
+      </label>
+      <label>
+        <span>超时（秒）</span>
+        <input type="number" value={Math.round((cfg.timeout ?? 60000) / 1000)} min={5} max={600}
+          onChange={e => setCfg(c => ({ ...c, timeout: Number(e.target.value) * 1000 }))}/>
       </label>
       <button className="ai-settings-save" onClick={save}>
         {saved ? '已保存 ✓' : '保存'}

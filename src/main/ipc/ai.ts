@@ -2,13 +2,14 @@ import { ipcMain, app } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import OpenAI from 'openai';
-import { ProxyAgent } from 'undici';
+import { ProxyAgent, Agent, setGlobalDispatcher } from 'undici';
 
 export interface AiConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
   proxyUrl: string;   // e.g. "http://127.0.0.1:7890"  empty = no proxy
+  timeout: number;    // milliseconds, default 60000
 }
 
 const DEFAULT_CONFIG: AiConfig = {
@@ -16,6 +17,7 @@ const DEFAULT_CONFIG: AiConfig = {
   apiKey: '',
   model: 'gpt-4o',
   proxyUrl: '',
+  timeout: 60_000,
 };
 
 const ANALYZE_SYSTEM_PROMPT = `你是一名专业的中国合同法律顾问，专注于商业合同风险审查。
@@ -52,11 +54,27 @@ function saveConfig(config: AiConfig): void {
   fs.writeFileSync(configPath(), JSON.stringify(config, null, 2), 'utf8');
 }
 
+let currentProxyUrl = '';
+
+function applyGlobalProxy(proxyUrl: string): void {
+  if (proxyUrl === currentProxyUrl) return;
+  currentProxyUrl = proxyUrl;
+  if (proxyUrl) {
+    setGlobalDispatcher(new ProxyAgent(proxyUrl) as any);
+    console.log('[proxy] global dispatcher set to', proxyUrl);
+  } else {
+    setGlobalDispatcher(new Agent() as any);
+    console.log('[proxy] global dispatcher reset to direct');
+  }
+}
+
 function makeClient(config: AiConfig): OpenAI {
-  const fetchOptions = config.proxyUrl
-    ? { dispatcher: new ProxyAgent(config.proxyUrl) as any }
-    : undefined;
-  return new OpenAI({ baseURL: config.baseUrl, apiKey: config.apiKey, fetchOptions });
+  applyGlobalProxy(config.proxyUrl ?? '');
+  return new OpenAI({
+    baseURL: config.baseUrl,
+    apiKey: config.apiKey,
+    timeout: config.timeout ?? 60_000,
+  });
 }
 
 export function registerAiIpcHandlers(): void {
@@ -69,7 +87,9 @@ export function registerAiIpcHandlers(): void {
   // Streaming chat
   ipcMain.on('ai:chat', async (event, reqId: string, messages: OpenAI.ChatCompletionMessageParam[]) => {
     const config = loadConfig();
+    console.log('[ai:chat] baseUrl=%s model=%s proxy=%s', config.baseUrl, config.model, config.proxyUrl || 'none');
     if (!config.apiKey) {
+      console.warn('[ai:chat] no apiKey');
       event.sender.send('ai:error', reqId, '请先在设置中填写 API Key');
       return;
     }
@@ -84,7 +104,9 @@ export function registerAiIpcHandlers(): void {
         if (text) event.sender.send('ai:chunk', reqId, text);
       }
       event.sender.send('ai:done', reqId);
+      console.log('[ai:chat] done');
     } catch (e: any) {
+      console.error('[ai:chat] error:', e?.message ?? e);
       event.sender.send('ai:error', reqId, e?.message ?? String(e));
     }
   });
@@ -92,6 +114,7 @@ export function registerAiIpcHandlers(): void {
   // One-shot contract analysis
   ipcMain.handle('ai:analyze', async (_, pageTexts: string[]): Promise<string> => {
     const config = loadConfig();
+    console.log('[ai:analyze] baseUrl=%s model=%s proxy=%s pages=%d', config.baseUrl, config.model, config.proxyUrl || 'none', pageTexts.length);
     if (!config.apiKey) throw new Error('请先在设置中填写 API Key');
 
     const contractText = pageTexts
@@ -113,16 +136,22 @@ export function registerAiIpcHandlers(): void {
         response_format: { type: 'json_object' } as any,
         temperature: 0.2,
       });
-      return resp.choices[0]?.message?.content ?? '{"issues":[]}';
+      const result = resp.choices[0]?.message?.content ?? '{"issues":[]}';
+      console.log('[ai:analyze] done, response length=%d', result.length);
+      return result;
     } catch (e: any) {
+      console.warn('[ai:analyze] first attempt error status=%s, retrying without response_format', e?.status);
       if (e?.status === 400 || e?.code === 'invalid_request_error') {
         const resp = await client.chat.completions.create({
           model: config.model,
           messages,
           temperature: 0.2,
         });
-        return resp.choices[0]?.message?.content ?? '{"issues":[]}';
+        const result = resp.choices[0]?.message?.content ?? '{"issues":[]}';
+        console.log('[ai:analyze] fallback done, response length=%d', result.length);
+        return result;
       }
+      console.error('[ai:analyze] error:', e?.message ?? e);
       throw e;
     }
   });

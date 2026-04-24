@@ -44,6 +44,7 @@ export interface AiConfig {
   apiKey: string;
   model: string;
   proxyUrl: string;
+  timeout: number;
 }
 
 export interface ElectronAPI {
