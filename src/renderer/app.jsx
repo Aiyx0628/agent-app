@@ -185,7 +185,7 @@ function App() {
 
   return (
     <>
-      <Titlebar/>
+      <Titlebar documentName={file?.name}/>
       <div className="main" style={{ '--left-w': leftW + 'px', '--right-w': rightW + 'px' }}>
         <div style={{ position: 'relative', minWidth: 0, minHeight: 0, display: 'flex' }}>
           <FileTree activeId={activeId} onSelect={setActiveId}
