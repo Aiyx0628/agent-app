@@ -34,10 +34,26 @@ export const PdfRealViewer = React.forwardRef<PdfViewerHandle, PdfRealViewerProp
         setActiveHighlight({ pageIndex, rects });
         const container = containerRef.current;
         if (!container) return;
+        const scrollHost = container.closest<HTMLElement>('.cp-body');
+        if (!scrollHost) return;
+
         const pageEl = container.querySelector<HTMLElement>(`[data-page="${pageIndex}"]`);
-        if (pageEl) {
-          pageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        if (!pageEl) return;
+
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const targetEl = pageEl.querySelector<HTMLElement>('.pdf-highlight.active') ?? pageEl;
+            const hostRect = scrollHost.getBoundingClientRect();
+            const targetRect = targetEl.getBoundingClientRect();
+            const targetTop = scrollHost.scrollTop + targetRect.top - hostRect.top - 96;
+            const maxScroll = scrollHost.scrollHeight - scrollHost.clientHeight;
+
+            scrollHost.scrollTo({
+              top: Math.max(0, Math.min(maxScroll, targetTop)),
+              behavior: 'smooth',
+            });
+          });
+        });
       },
     }));
 

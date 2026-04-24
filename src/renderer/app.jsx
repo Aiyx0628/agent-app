@@ -253,7 +253,6 @@ function App() {
           onDragOver={handleLeftDragOver}
           onDragLeave={handleLeftDragLeave}
           onDrop={handleDropFiles}
-          style={{ position: 'relative', minWidth: 0, minHeight: 0, display: 'flex' }}
         >
           <FileTree activeId={activeId} onSelect={setActiveId}
             tree={fileTree} onAddFile={handleAddFile}/>
@@ -267,7 +266,7 @@ function App() {
             </div>
         }
 
-        <div style={{ position: 'relative', minWidth: 0, minHeight: 0, display: 'flex' }}>
+        <div className="right-pane-shell">
           <div className="resizer r-right" onMouseDown={onDragStart('right')}/>
           <Chat
             activeIssue={activeIssue}

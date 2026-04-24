@@ -61,7 +61,12 @@ body {
   text-rendering: optimizeLegibility;
   overflow: hidden;
 }
-#root { height: 100vh; display: flex; flex-direction: column; }
+#root {
+  height: 100vh;
+  display: grid;
+  grid-template-rows: var(--titlebar-height) minmax(0, 1fr);
+  overflow: hidden;
+}
 
 button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
 button:focus-visible, [role="button"]:focus-visible {
@@ -72,8 +77,9 @@ input { font: inherit; }
 
 /* ---------- titlebar ---------- */
 .titlebar {
-  height: var(--titlebar-height);
-  min-height: var(--titlebar-height);
+  grid-row: 1;
+  height: 100%;
+  min-height: 0;
   background: var(--bg-elev);
   border-bottom: 1px solid var(--line);
   display: flex;
@@ -159,10 +165,11 @@ input { font: inherit; }
 
 /* ---------- main layout ---------- */
 .main {
-  flex: 1;
+  grid-row: 2;
   display: grid;
   grid-template-columns: var(--left-w, 300px) 1fr var(--right-w, 300px);
   min-height: 0;
+  overflow: hidden;
   background: var(--bg);
 }
 .pane {
@@ -178,6 +185,15 @@ input { font: inherit; }
 .pane.left { border-right: 1px solid var(--line); background: var(--bg-elev); }
 .pane.center { background: var(--canvas); }
 .pane.right { border-left: 1px solid var(--line); background: var(--bg-elev); }
+
+.left-drop-zone,
+.right-pane-shell {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
 
 .left-drop-zone::after {
   content: '';
@@ -399,6 +415,7 @@ input { font: inherit; }
 .cp-body {
   flex: 1;
   overflow: auto;
+  overscroll-behavior: contain;
   position: relative;
   scroll-behavior: smooth;
 }
